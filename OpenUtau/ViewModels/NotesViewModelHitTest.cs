@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -249,9 +249,39 @@ namespace OpenUtau.App.ViewModels {
             return default;
         }
 
+        /// <summary>
+        /// NEUTRINO direct の句なら、PITD の基準 = 描画済みの素の F0 + ビブラート(ペンで描いた高さがそのまま鳴る高さになる)。
+        /// </summary>
+        double? SampleDirectUnder(double tick) {
+            if (viewModel.Part == null) {
+                return null;
+            }
+            double absTick = tick + viewModel.Part.position;
+            foreach (var phrase in viewModel.Part.renderPhrases) {
+                if (absTick < phrase.position - phrase.leading || absTick > phrase.end) {
+                    continue;
+                }
+                var curve = OpenUtau.Core.Neutrino.NeutrinoRenderer.GetDirectPitch(phrase);
+                if (curve == null || curve.ticks.Length == 0) {
+                    return null;
+                }
+                int i = Array.BinarySearch(curve.ticks, (int)Math.Round(absTick));
+                if (i < 0) {
+                    i = ~i;
+                }
+                i = Math.Clamp(i, 0, curve.ticks.Length - 1);
+                return curve.under[i];
+            }
+            return null;
+        }
+
         public double? SamplePitch(Point point) {
             if (viewModel.Part == null) {
                 return null;
+            }
+            double? directUnder = SampleDirectUnder(viewModel.PointToTick(point));
+            if (directUnder != null) {
+                return directUnder;
             }
             double tick = viewModel.PointToTick(point);
             var note = viewModel.Part.notes.FirstOrDefault(n => n.End >= tick);
@@ -275,6 +305,10 @@ namespace OpenUtau.App.ViewModels {
         public double? SampleOverwritePitch(Point point) {
             if (viewModel.Part == null || viewModel.Part.renderPhrases.Count == 0) {
                 return null;
+            }
+            double? directUnder = SampleDirectUnder(viewModel.PointToTick(point));
+            if (directUnder != null) {
+                return directUnder;
             }
             double tick = viewModel.PointToTick(point);
             double absTick = tick + viewModel.Part.position;

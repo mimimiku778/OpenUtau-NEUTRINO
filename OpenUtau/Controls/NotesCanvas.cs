@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -829,11 +829,38 @@ namespace OpenUtau.App.Controls {
             context.DrawLine(pen, periodEnd, periodEnd + new Vector(0, height));
         }
 
+        private void RenderDirectPitch(OpenUtau.Core.Neutrino.NeutrinoRenderer.DirectPitchCurve curve, double leftTick, double rightTick,
+            NotesViewModel viewModel, DrawingContext context) {
+            var pen = new Pen(ThemeManager.FinalPitchBrush, 1.5);
+            var points = new Points();
+            void Flush() {
+                if (points.Count > 1) {
+                    context.DrawGeometry(null, pen, new PolylineGeometry(points, false));
+                }
+                points = new Points();
+            }
+            for (int k = 0; k < curve.ticks.Length; k++) {
+                double t = curve.ticks[k] - Part!.position;
+                if (t < leftTick - 480 || t > rightTick + 480 || float.IsNaN(curve.heard[k])) {
+                    Flush();
+                    continue;
+                }
+                points.Add(viewModel.TickToneToPoint(t, curve.heard[k] / 100.0 - 0.5));
+            }
+            Flush();
+        }
+
         private void RenderFinalPitch(double leftTick, double rightTick, NotesViewModel viewModel, DrawingContext context) {
             var pen = ThemeManager.FinalPitchPen!;
             lock (Part!) {
                 foreach (var phrase in Part!.renderPhrases) {
                     if (phrase.position - Part.position > rightTick || phrase.end - Part.position < leftTick) {
+                        continue;
+                    }
+                    // NEUTRINO direct: 画面の線ではなく、実際に鳴る線(描画済みの素の F0 + ビブラート + PITD)を描く
+                    var direct = OpenUtau.Core.Neutrino.NeutrinoRenderer.GetDirectPitch(phrase);
+                    if (direct != null) {
+                        RenderDirectPitch(direct, leftTick, rightTick, viewModel, context);
                         continue;
                     }
                     int pitchStart = phrase.position - phrase.leading - Part.position;
