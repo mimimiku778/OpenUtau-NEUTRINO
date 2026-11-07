@@ -212,6 +212,8 @@ namespace OpenUtau.Core.Render {
         public readonly string wavtool;
         /// <summary>句ごとの声 (PhraseVoice) で VOICEVOX を選んだ時のスタイル名。指定なしは null。</summary>
         public readonly string voiceStyle;
+        /// <summary>歌い方の F0 の整え方 (調声の掛け具合・平滑・語尾の上限)。句の頭の音素の値。既定なら今までと同じ。</summary>
+        public readonly Neutrino.SingingStyleF0.Settings styleF0;
 
         /// <summary>
         /// The [startMs, endMs) range (absolute ms) of the rendered phrase
@@ -263,6 +265,7 @@ namespace OpenUtau.Core.Render {
                 renderer = voiceRenderer;
                 voiceStyle = style;
             }
+            styleF0 = phrasePhonemes.First().StyleF0 ?? Neutrino.SingingStyleF0.Settings.Default;
             wavtool = source.Wavtool;
             timeAxis = source.Axis;
 
@@ -573,6 +576,10 @@ namespace OpenUtau.Core.Render {
                             foreach(var v in curve.Item2) {
                                 writer.Write(v);
                             }
+                        }
+                        // 歌い方の F0 の整え方は描いた音だけを変える (歌い方の描画の cache を使い回せるよう preEffectHash には入れない)
+                        if (!styleF0.IsDefault) {
+                            styleF0.Write(writer);
                         }
                     }
                     return XXH64.DigestOf(stream.ToArray());

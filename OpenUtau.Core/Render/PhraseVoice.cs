@@ -58,7 +58,8 @@ namespace OpenUtau.Core.Render {
             if (project?.tracks == null) {
                 return;
             }
-            if (!refresh && project.expressions.ContainsKey(ABBR) && project.expressions.ContainsKey(Neutrino.NeutrinoTeacher.ABBR)) {
+            if (!refresh && project.expressions.ContainsKey(ABBR) && project.expressions.ContainsKey(Neutrino.NeutrinoTeacher.ABBR)
+                && Neutrino.SingingStyleF0.Abbrs.All(project.expressions.ContainsKey)) {
                 return;
             }
             bool uses = project.tracks.Any(t => {
@@ -70,7 +71,8 @@ namespace OpenUtau.Core.Render {
             if (!uses) {
                 return;
             }
-            foreach (var descriptor in new[] { Descriptor(), Neutrino.NeutrinoTeacher.Descriptor() }) {
+            // 歌い方の F0 の整え方 (調声の掛け具合・平滑・語尾の上限) も句全体に効くので一緒に足す
+            foreach (var descriptor in new[] { Descriptor(), Neutrino.NeutrinoTeacher.Descriptor() }.Concat(Neutrino.SingingStyleF0.Descriptors())) {
                 if (!project.expressions.TryGetValue(descriptor.abbr, out var existing)) {
                     project.expressions[descriptor.abbr] = descriptor;
                     continue;
@@ -93,7 +95,7 @@ namespace OpenUtau.Core.Render {
         }
 
         /// <summary>句全体に効く表情 (句ごとの声・歌い方)。値は句の頭の音符の物が効く。</summary>
-        public static bool IsPhraseWide(string abbr) => abbr == ABBR || abbr == Neutrino.NeutrinoTeacher.ABBR;
+        public static bool IsPhraseWide(string abbr) => abbr == ABBR || abbr == Neutrino.NeutrinoTeacher.ABBR || Neutrino.SingingStyleF0.IsStyleAbbr(abbr);
 
         /// <summary>
         /// 渡した音符と、それらが入っている句 (音符が隙間なくつながったまとまり) の音符全部。

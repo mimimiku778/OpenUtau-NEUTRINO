@@ -219,6 +219,12 @@ namespace OpenUtau.Core.Pipeline {
         public readonly float VelRaw;
         public readonly float ModpRaw;
 
+        /// <summary>
+        /// How the singing style F0 of a direct phrase is shaped (tuning amount, smoothing, tail fall limit).
+        /// The phrase uses its first phoneme's values. Not a resampler flag, so the values keep their fractions.
+        /// </summary>
+        public readonly Neutrino.SingingStyleF0.Settings StyleF0;
+
         // Voicebank resources, stable per singer.
         public readonly UOto Oto;
         public readonly UOto Oto2;
@@ -289,6 +295,7 @@ namespace OpenUtau.Core.Pipeline {
             // "off" (0) rather than an error.
             bool hasModp = track.TryGetExpDescriptor(project, Format.Ustx.MODP, out _);
             ModpRaw = hasModp ? phoneme.GetExpression(project, track, Format.Ustx.MODP).Item1 : 0f;
+            StyleF0 = Neutrino.SingingStyleF0.Read(phoneme, project, track);
 
             Oto = phoneme.oto;
             if (Oto != null && !string.IsNullOrEmpty(targetColor)) {
