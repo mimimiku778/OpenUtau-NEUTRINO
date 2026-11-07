@@ -2,13 +2,11 @@
 
 本家 [OpenUtau](https://github.com/openutau/OpenUtau) に、rokujyushi さんの NEUTRINO 対応と、この版で足した機能を重ねた非公式ビルドです。
 
-![OpenUtau でずんだもん (NEUTRINO) を編集している画面](docs/screenshot.webp)
+**画面**: ずんだもん(NEUTRINO)の歌を編集している所。
 
-## 中身
+<img src="docs/screenshot.webp" alt="OpenUtau でずんだもん (NEUTRINO) を編集している画面">
 
-素の OpenUtau に、上から順に重ねています。
-
-{{LAYERS}}
+<br>
 
 ## ダウンロード
 

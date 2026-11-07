@@ -19,7 +19,7 @@ BASE_VERSION=${BASE_VERSION:-} LATEST_VERSION=${LATEST_VERSION:-}
 LATEST_UPSTREAM_SHA=${LATEST_UPSTREAM_SHA:-} LATEST_UPSTREAM_DATE=${LATEST_UPSTREAM_DATE:-}
 UPSTREAM_REPO=${UPSTREAM_REPO:-openutau/OpenUtau}
 commit_link() { echo "[${2:0:8}](https://github.com/$1/commit/$2)"; }
-# features.txt を 1 行ずつ、US (\037) 区切り (key, 誰の物か, 題, 説明, 本家向けブランチとコミット, 画像) で出す
+# features.txt を 1 行ずつ、US (\037) 区切り (key, 誰の物か, 題, これまで, この版, 本家向けブランチとコミット) で出す
 # (タブだと空の列が詰まるので、空白でない区切りにする)
 US=$'\037'
 features() {
@@ -27,21 +27,36 @@ features() {
     for (i = 1; i <= 6; i++) gsub(/^ +| +$/, "", $i)
     print $1 "\037" $2 "\037" $3 "\037" $4 "\037" $5 "\037" $6 }' "$d/features.txt"
 }
-# 足した機能の一覧。説明の無い物は載せない。
-# 題の後ろに最新版のコミットへのリンクを並べる (そこから中身へ飛べるように)。
-# 説明の中の \n は改行 (項目の下へ字下げして続ける。「- 」で始めれば入れ子の箇条書き)。
-# 画像の列があれば、README にだけその画面・図 (docs/ の下、空白区切りで複数) を項目の中に載せる
+# 足した機能の表 (これまで → この版では)。「この版」が空の行は載せない。題の下に最新版のコミットへのリンク (3 本以上は先頭と「ほか N 本」)。
+# README では、packaging/features/<key>.md があれば題からそこへ飛べるようにし、表の下に見出しを付けて並べる
+# (各 .md は「何ができる → どこで設定 → こうするとこうなるの表 → 図」。図は説明の 1〜2 行の直後に 1 枚ずつ、後ろに <br> で隙間)。
 changes() {
-  features | while IFS=$US read -r key owner title desc fix img; do
-    [ -n "$desc" ] || continue
-    printf -- '- **%s** %s: %s\n' "$title" "$(commits_of "$d/extra-commits-latest.txt" "$key")" "${desc//\\n/$'\n'  }"
-    if [ -n "$img" ] && [ "$MODE" = readme ]; then
-      for i in $img; do
-        printf '\n  <img src="docs/%s" alt="%s">\n' "$i" "$title"
-      done
-      printf '\n'
-    fi
+  if [ "$MODE" = readme ]; then
+    echo "題にリンクがある物は、表の下に設定する所と実測があります。"
+    echo
+  fi
+  echo "| 機能 | これまで(元の PR・本家) | この版では |"
+  echo "|---|---|---|"
+  features | while IFS=$US read -r key owner title before after fix; do
+    [ -n "$after" ] || continue
+    local t="**$title**"
+    if [ "$MODE" = readme ] && [ -f "$d/features/$key.md" ]; then t="[**$title**](#$key)"; fi
+    local br="<br>"; [ "$MODE" = mac ] || [ "$MODE" = windows ] && br=" "
+    echo "| $t$br$(commits_brief "$d/extra-commits-latest.txt" "$key") | $before | $after |"
   done
+  [ "$MODE" = readme ] || return 0
+  features | while IFS=$US read -r key owner title before after fix; do
+    [ -f "$d/features/$key.md" ] || continue
+    printf '\n<a id="%s"></a>\n\n### %s\n\n' "$key" "$title"
+    cat "$d/features/$key.md"
+  done
+}
+# <一覧> <key> → コミットへのリンク。3 本以上なら先頭の 1 本と「ほか N 本」(全部の並びは extra-commits*.txt)
+commits_brief() {
+  local links n
+  links=$(commits_of "$1" "$2")
+  n=$(wc -w <<< "$links")
+  if [ "$n" -gt 2 ]; then echo "${links%% *} ほか $((n - 1)) 本"; else echo "$links"; fi
 }
 # <一覧> <key> → その key のコミットへのリンクを空白区切りで。sha が決まっていない行 (40 桁でない) は「未記入」、1 行も無ければ「—」
 commits_of() {
@@ -55,7 +70,7 @@ commits_of() {
 commits_table() {
   echo "| 中身 | 誰の物か | 固定版 | 最新版 | 本家 \`master\` 向け |"
   echo "|---|---|---|---|---|"
-  features | while IFS=$US read -r key owner title desc fix img; do
+  features | while IFS=$US read -r key owner title before after fix; do
     local up="" branch sha
     if [ -n "$fix" ]; then
       read -r branch sha <<< "$fix"
@@ -63,7 +78,7 @@ commits_table() {
         up="[\`$branch\`](https://github.com/{{BUILD_REPO}}/tree/$branch) $(commit_link '{{BUILD_REPO}}' "$sha")"
       else up="**未記入**"; fi
     fi
-    echo "| $title | $owner | $(commits_of "$d/extra-commits.txt" "$key") | $(commits_of "$d/extra-commits-latest.txt" "$key") | $up |"
+    echo "| $title | $owner | $(commits_brief "$d/extra-commits.txt" "$key") | $(commits_brief "$d/extra-commits-latest.txt" "$key") | $up |"
   done
 }
 # 足すコミットの key が全部 features.txt にあるか (表から漏れないように)
@@ -77,31 +92,37 @@ check_keys() {
     exit 1
   fi
 }
-# ダウンロードの表。出している版だけを載せる。
+# ダウンロードの表。出している版だけを載せる。README ではリンク、Release の本文では添付のファイル名。
 downloads() {
   local b="https://github.com/{{BUILD_REPO}}/releases/latest/download"
-  echo "| | Mac | Windows(動作未確認) |"
-  echo "|---|---|---|"
-  if [ -n "$BASE_VERSION" ]; then
-    echo "| 固定版(OpenUtau ${BASE_VERSION}) | [dmg]($b/OpenUtau-NEUTRINO-macos-arm64.dmg) | [zip]($b/OpenUtau-NEUTRINO-win-x64.zip) |"
-  fi
-  if [ -n "$LATEST_VERSION" ]; then
-    echo "| 最新版(本家 [OpenUtau](https://github.com/openutau/OpenUtau) の最新) | [dmg]($b/OpenUtau-NEUTRINO-latest-macos-arm64.dmg) | [zip]($b/OpenUtau-NEUTRINO-latest-win-x64.zip) |"
+  local fm=OpenUtau-NEUTRINO-macos-arm64.dmg fw=OpenUtau-NEUTRINO-win-x64.zip
+  local lm=OpenUtau-NEUTRINO-latest-macos-arm64.dmg lw=OpenUtau-NEUTRINO-latest-win-x64.zip
+  local fixed="OpenUtau ${BASE_VERSION}。NEUTRINO 対応の PR のまま" latest="本家の最新 ${LATEST_VERSION} を混ぜた物。動作保証なし"
+  echo "| | 中身 | Mac | Windows(動作未確認) |"
+  echo "|---|---|---|---|"
+  if [ "$MODE" = readme ]; then
+    [ -z "$BASE_VERSION" ] || echo "| **固定版** | $fixed | [dmg]($b/$fm) | [zip]($b/$fw) |"
+    [ -z "$LATEST_VERSION" ] || echo "| **最新版** | $latest | [dmg]($b/$lm) | [zip]($b/$lw) |"
+  else
+    [ -z "$BASE_VERSION" ] || echo "| **固定版** | $fixed | \`$fm\` | \`$fw\` |"
+    [ -z "$LATEST_VERSION" ] || echo "| **最新版** | $latest | \`$lm\` | \`$lw\` |"
   fi
   echo
-  echo "固定版は PR のまま、最新版は本家の最新を混ぜたものです(動作保証なし)。入れるのはどちらか一方です。"
+  echo "入れるのはどちらか一方です。"
 }
 # 素の OpenUtau に何を重ねたか。出していない版は「今は出していません」。
 layers() {
   local fixed="今は出していません" latest="今は出していません"
-  [ -n "$BASE_VERSION" ] && fixed="$BASE_VERSION(2 の NEUTRINO 対応が取り込んだ版)"
+  [ -n "$BASE_VERSION" ] && fixed="$BASE_VERSION(2 が取り込んだ版)"
   if [ -n "$LATEST_VERSION" ]; then
     latest="$LATEST_VERSION(本家 \`master\` の $(commit_link "$UPSTREAM_REPO" "$LATEST_UPSTREAM_SHA")、${LATEST_UPSTREAM_DATE})"
   fi
-  echo "1. 本家 [OpenUtau](https://github.com/${UPSTREAM_REPO})。固定版は ${fixed}、最新版は ${latest}。VOICEVOX で歌う機能はここに元からあります。"
-  echo "2. NEUTRINO 対応。rokujyushi さんの PR [openutau/OpenUtau#2136](https://github.com/openutau/OpenUtau/pull/2136)。ソースは [${SOURCE_REPO}](https://github.com/${SOURCE_REPO}/tree/${SOURCE_REF}) の \`${SOURCE_REF}\` ブランチ($(commit_link "$SOURCE_REPO" "$SOURCE_SHA"))。"
-  echo "3. 画面なしの書き出し(CLI)。christianazinn さんの PR [openutau/OpenUtau#2162](https://github.com/openutau/OpenUtau/pull/2162) を、NEUTRINO 対応版で動くように直した物。"
-  echo "4. この版で足した機能。下の「足した機能」。"
+  echo "| | 重ねた物 | 中身 |"
+  echo "|---|---|---|"
+  echo "| 1 | 本家 [OpenUtau](https://github.com/${UPSTREAM_REPO}) | 固定版は ${fixed}、最新版は ${latest}。VOICEVOX で歌う機能はここに元からある |"
+  echo "| 2 | NEUTRINO 対応 | rokujyushi さんの PR [openutau/OpenUtau#2136](https://github.com/openutau/OpenUtau/pull/2136)。[${SOURCE_REPO}](https://github.com/${SOURCE_REPO}/tree/${SOURCE_REF}) の \`${SOURCE_REF}\` ブランチ($(commit_link "$SOURCE_REPO" "$SOURCE_SHA")) |"
+  echo "| 3 | 画面なしの書き出し(CLI) | christianazinn さんの PR [openutau/OpenUtau#2162](https://github.com/openutau/OpenUtau/pull/2162) を、NEUTRINO 対応版で動くように直した物 |"
+  echo "| 4 | この版で足した機能 | 上の「[足した機能](#足した機能)」 |"
 }
 # ビルドしたソースを並べたブランチの表。台帳 (source-branches.txt) が今のソースと合う版だけを載せる。
 source_branches() {
@@ -147,7 +168,7 @@ check_keys
 MODE=${1:-}
 case "${1:-}" in
   readme)  { part top; part howto; part about; part source; part notice; } ;;
-  release) { echo "固定版は OpenUtau ${BASE_VERSION}(PR のまま)、最新版(ファイル名に latest)は本家 [OpenUtau](https://github.com/openutau/OpenUtau) の最新を混ぜたものです(動作保証なし)。入れるのはどちらか一方です。"; echo; part howto; part about; part notice; } ;;
+  release) { downloads; echo; part howto; part about; part notice; } ;;
   mac)     { echo "# OpenUtau NEUTRINO対応版(非公式)"; echo; part howto; part about; part notice; } ;;
   windows) { echo "# OpenUtau NEUTRINO対応版(非公式)"; echo; part howto; part about; part notice; } ;;
   *) echo "usage: $0 readme|release|mac|windows" >&2; exit 2 ;;
