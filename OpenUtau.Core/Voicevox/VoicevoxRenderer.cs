@@ -113,6 +113,9 @@ namespace OpenUtau.Core.Voicevox {
                                         speakerID = style.id;
                                     }
                                 });
+                                // OpenUtau mixes at 44.1 kHz. Ask the engine for 44.1 kHz instead of its native 24 kHz,
+                                // so the audio is not resampled again on our side.
+                                vsParams.outputSamplingRate = 44100;
                                 VoicevoxUtils.InitializedSpeaker(speakerID.ToString(), false);
                                 var queryurl = new VoicevoxURL() { method = "POST", path = "/frame_synthesis", query = new Dictionary<string, string> { { "speaker", speakerID.ToString() } }, body = Json.Serialize(vsParams), accept = "audio/wav" };
                                 var response = VoicevoxClient.Inst.SendRequest(queryurl);
