@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -191,6 +191,12 @@ namespace OpenUtau.Core.Render {
 
         public readonly float[] pitches;
         public readonly float[] pitchesBeforeDeviation;
+        /// <summary>
+        /// Cents to add on top of a renderer's own predicted pitch: note vibrato + PITD
+        /// (no note steps, no portamento). Used by NEUTRINO "direct" to keep NEUTRINO's
+        /// own F0 and apply only the user's edits.
+        /// </summary>
+        public readonly float[] pitchDeviation;
         public readonly float[] dynamics;
         public readonly float[] gender;
         public readonly float[] breathiness;
@@ -289,6 +295,7 @@ namespace OpenUtau.Core.Render {
                 index++;
             }
             // Vibrato
+            var pitchesBeforeVibrato = pitches.ToArray();
             foreach (int noteIdx in uNotes) {
                 var note = notesOf[noteIdx];
                 if (note.Vibrato.Length <= 0) {
@@ -303,6 +310,10 @@ namespace OpenUtau.Core.Render {
                     var point = note.Vibrato.Evaluate(nPos, nPeriod, note);
                     pitches[i] = point.Y * 100;
                 }
+            }
+            var vibratoOffsets = new float[pitches.Length];
+            for (int i = 0; i < pitches.Length; ++i) {
+                vibratoOffsets[i] = pitches[i] - pitchesBeforeVibrato[i];
             }
             // Pitch points
             foreach (int noteIdx in uNotes) {
@@ -447,6 +458,10 @@ namespace OpenUtau.Core.Render {
                 for (int i = 0; i < pitches.Length; ++i) {
                     pitches[i] += pitchCurve.Sample(pitchStart + i * pitchInterval);
                 }
+            }
+            pitchDeviation = new float[pitches.Length];
+            for (int i = 0; i < pitches.Length; ++i) {
+                pitchDeviation[i] = vibratoOffsets[i] + pitches[i] - pitchesBeforeDeviation[i];
             }
 
             var curves = new List<Tuple<string, float[]>>();
