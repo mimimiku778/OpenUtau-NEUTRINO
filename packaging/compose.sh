@@ -26,9 +26,10 @@ features() {
     print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 }' "$d/features.txt"
 }
 # 足した機能の一覧。説明の無い物は載せない。
+# 題の後ろに最新版のコミットへのリンクを並べる (そこから中身へ飛べるように)
 changes() {
   features | while IFS=$'\t' read -r key owner title desc fix; do
-    [ -n "$desc" ] && printf -- '- **%s**: %s\n' "$title" "$desc"
+    [ -n "$desc" ] && printf -- '- **%s** %s: %s\n' "$title" "$(commits_of "$d/extra-commits-latest.txt" "$key")" "$desc"
   done
 }
 # <一覧> <key> → その key のコミットへのリンクを空白区切りで。sha が決まっていない行 (40 桁でない) は「未記入」、1 行も無ければ「—」
