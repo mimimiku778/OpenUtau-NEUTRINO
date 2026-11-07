@@ -1,5 +1,5 @@
 # ビルドしたソースをそのまま並べたブランチ (この repo)。README の「ソース」に載せる。
 # 1行に1つ: <fixed|latest> <ブランチ> <ブランチの先頭 = 足すコミットの最後> <元のソースのコミット> <本家 master のコミット (latest だけ)>
 # 元のソース・本家 master・足すコミットのどれかが変わると、その版の行は README に載らない (ブランチを並べ直してこの行を直す)。
-fixed neutrino-cli-dist fe2a9c002febe30a8d9ebbc58b47b9f7698359a4 203c44f5d1374697abfa69626a2b52a19627184b
-latest neutrino-latest-dist c398f2a1dc2903279c0404e395f5dd1786c489fc 203c44f5d1374697abfa69626a2b52a19627184b f920e2423113f9a936ec77eebf1f192e02a7ea6a
+fixed neutrino-cli-dist d3e3d5acdc8950b2ea5adc5d84dd2e5389738e03 203c44f5d1374697abfa69626a2b52a19627184b
+latest neutrino-latest-dist a4fad1eb7401a3580e7447421ae9ccd4a885ea97 203c44f5d1374697abfa69626a2b52a19627184b f920e2423113f9a936ec77eebf1f192e02a7ea6a

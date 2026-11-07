@@ -28,4 +28,4 @@ a8caffe37771ff04254b663d43a1ce950c7b1980 pika-02-03/OpenUtau-NEUTRINO vv-44100 V
 1dcba0c580497100abc76944384ff25256bad9ff pika-02-03/OpenUtau-NEUTRINO sinc WDL の sinc で変換
 9ee0b068236018bed4f9e568271b8efb7d4c7167 pika-02-03/OpenUtau-NEUTRINO vv-katakana カタカナの歌詞
 53b8bdce2c7cd2fbf362b7950d8211da43487361 pika-02-03/OpenUtau-NEUTRINO vv-lyrics あっ[a cl]・づ・ー
-fe2a9c002febe30a8d9ebbc58b47b9f7698359a4 pika-02-03/OpenUtau-NEUTRINO style-f0 歌い方の掛け具合・平滑・語尾の上限
+d3e3d5acdc8950b2ea5adc5d84dd2e5389738e03 pika-02-03/OpenUtau-NEUTRINO style-f0 歌い方の掛け具合・平滑・語尾の上限

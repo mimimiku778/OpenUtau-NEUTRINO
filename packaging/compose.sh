@@ -29,13 +29,17 @@ features() {
 }
 # 足した機能の一覧。説明の無い物は載せない。
 # 題の後ろに最新版のコミットへのリンクを並べる (そこから中身へ飛べるように)。
-# 画像の列があれば、README にだけその画面 (docs/ の下) を項目の中に載せる
+# 説明の中の \n は改行 (項目の下へ字下げして続ける。「- 」で始めれば入れ子の箇条書き)。
+# 画像の列があれば、README にだけその画面・図 (docs/ の下、空白区切りで複数) を項目の中に載せる
 changes() {
   features | while IFS=$US read -r key owner title desc fix img; do
     [ -n "$desc" ] || continue
-    printf -- '- **%s** %s: %s\n' "$title" "$(commits_of "$d/extra-commits-latest.txt" "$key")" "$desc"
+    printf -- '- **%s** %s: %s\n' "$title" "$(commits_of "$d/extra-commits-latest.txt" "$key")" "${desc//\\n/$'\n'  }"
     if [ -n "$img" ] && [ "$MODE" = readme ]; then
-      printf '\n  <img src="docs/%s" alt="%s">\n\n' "$img" "$title"
+      for i in $img; do
+        printf '\n  <img src="docs/%s" alt="%s">\n' "$i" "$title"
+      done
+      printf '\n'
     fi
   done
 }
