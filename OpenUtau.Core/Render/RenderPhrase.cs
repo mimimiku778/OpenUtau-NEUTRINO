@@ -218,6 +218,8 @@ namespace OpenUtau.Core.Render {
 
         internal readonly IRenderer renderer;
         public readonly string wavtool;
+        /// <summary>句ごとの声 (PhraseVoice) で VOICEVOX を選んだ時のスタイル名。指定なしは null。</summary>
+        public readonly string voiceStyle;
 
         /// <summary>
         /// The [startMs, endMs) range (absolute ms) of the rendered phrase
@@ -250,6 +252,12 @@ namespace OpenUtau.Core.Render {
 
             singer = source.Singer;
             renderer = source.Renderer;
+            // 句ごとの声: 音符がつながっていない句は別々に描くので、その句だけ別の歌手・描画器にできる
+            if (PhraseVoice.TryResolve(phrasePhonemes.First().Flags, out var voiceSinger, out var voiceRenderer, out var style)) {
+                singer = voiceSinger;
+                renderer = voiceRenderer;
+                voiceStyle = style;
+            }
             wavtool = source.Wavtool;
             timeAxis = source.Axis;
 

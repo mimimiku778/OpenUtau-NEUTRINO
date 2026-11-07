@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using K4os.Hash.xxHash;
 using NAudio.Wave;
 using OpenUtau.Core.Format;
+using OpenUtau.Core.Neutrino;
 using OpenUtau.Core.Render;
 using OpenUtau.Core.Ustx;
 using Serilog;
@@ -32,6 +33,8 @@ namespace OpenUtau.Core.Voicevox {
             Format.Ustx.VOL,
             Format.Ustx.DIR,
             Format.Ustx.SHFT,
+            NeutrinoTeacher.ABBR,
+            PhraseVoice.ABBR,
             VOLC,
             SMOC,
             REPM,
@@ -83,6 +86,11 @@ namespace OpenUtau.Core.Voicevox {
                                 } else {
                                     //vsParams.f0 = ToneShift(phrase, vsParams);
                                     vsParams.f0 = vsParams.f0.Select(f0 => f0 = f0 * Math.Pow(2, ((phrase.phones[0].toneShift * -1) / 12d))).ToList();
+                                    if (TeacherOf(phrase) != null) {
+                                        // NEUTRINO の direct と同じく、先生の F0 に音符のビブラートと PITD の分だけを足す
+                                        var cents = VoicevoxUtils.SampleCurve(phrase, phrase.pitchDeviation, 0, frameMs, vvTotalFrames, vsParams.phonemes[0].frame_length, vsParams.phonemes[^1].frame_length, 0, x => x);
+                                        vsParams.f0 = vsParams.f0.Select((f, i) => f > 0 ? f * Math.Pow(2, cents[i] / 1200.0) : f).ToList();
+                                    }
                                 }
 
                                 //Volume parameter for synthesis. Scheduled to be revised
@@ -113,7 +121,23 @@ namespace OpenUtau.Core.Voicevox {
                                         speakerID = style.id;
                                     }
                                 });
+                                // 句ごとの声で選んだスタイル (別の歌手のトラックの句では音素の声色が使えないので、こちらが優先)
+                                if (!string.IsNullOrEmpty(phrase.voiceStyle)) {
+                                    var chosen = singer.voicevoxConfig.styles.FirstOrDefault(style => style.name == phrase.voiceStyle && style.type == "frame_decode");
+                                    if (chosen != null) {
+                                        speakerID = chosen.id;
+                                    } else {
+                                        Log.Warning($"VOICEVOX style {phrase.voiceStyle} is not in {singer.Id}; using the default style.");
+                                    }
+                                }
                                 VoicevoxUtils.InitializedSpeaker(speakerID.ToString(), false);
+                                var dumpDir = Environment.GetEnvironmentVariable("OPENUTAU_DUMP_VV_QUERY");
+                                if (!string.IsNullOrEmpty(dumpDir)) {
+                                    Directory.CreateDirectory(dumpDir);
+                                    int sf = VoicevoxUtils.ToFrame(VoicevoxUtils.GetSynthSpan(phrase).startMs);
+                                    File.WriteAllText(Path.Join(dumpDir, $"{phrase.position:D8}.json"),
+                                        $"{{\"positionMs\":{phrase.positionMs},\"startFrame\":{sf},\"layoutMs\":{result.positionMs},\"speaker\":{speakerID},\"teacher\":\"{TeacherOf(phrase)?.Id}\",\"query\":{Json.Serialize(vsParams)}}}");
+                                }
                                 var queryurl = new VoicevoxURL() { method = "POST", path = "/frame_synthesis", query = new Dictionary<string, string> { { "speaker", speakerID.ToString() } }, body = Json.Serialize(vsParams), accept = "audio/wav" };
                                 var response = VoicevoxClient.Inst.SendRequest(queryurl);
                                 byte[] bytes = null;
@@ -159,6 +183,10 @@ namespace OpenUtau.Core.Voicevox {
 
         //Match the phonemes in the synthesis parameters to the scores in the score to update F0 and volume  
         private VoicevoxSynthParams PhraseToVoicevoxSynthParams(RenderPhrase phrase, VoicevoxSinger singer, bool pitch_slur) {
+            var teacher = TeacherOf(phrase);
+            if (teacher != null) {
+                return TeacherSynthParams(phrase, teacher);
+            }
 
             //Prepare for future additions of Teacher Singer.
             string baseSingerID = VoicevoxUtils.getBaseSingerID(singer);
@@ -176,6 +204,17 @@ namespace OpenUtau.Core.Voicevox {
 
                 //Create parameters for the update destination.
                 vsParams = PhonemeToVoicevoxSynthParams(phrase);
+                if (vsParams.phonemes.Count != vsParamsServer.phonemes.Count) {
+                    // 句の音素が VOICEVOX の書き方でない (NEUTRINO 等のトラックで句ごとの声を VOICEVOX にした時) と、
+                    // 歌詞から作る音素の並びと合わず、エンジンが「音素列が一致しません」と断る。
+                    // その時は VOICEVOX が歌詞から作った置き方・高さ・音量のまま歌う。
+                    Log.Warning($"VOICEVOX: the phrase's phonemes ({vsParams.phonemes.Count}) do not match the lyrics ({vsParamsServer.phonemes.Count}); singing with VOICEVOX's own timing.");
+                    vsParams = vsParamsServer;
+                    if (pitch_slur) {
+                        VoicevoxUtils.AdjustF0ForSlur(VoicevoxUtils.NoteGroupsToVQuery(vNotes.ToArray(), phrase.timeAxis, true), vsParams.f0);
+                    }
+                    return vsParams;
+                }
                 //vsParamsUser is a parameter to hold phonemes changed by the user
                 VoicevoxSynthParams vsParamsUser = vsParams.Clone();
                 if (vsParams.phonemes.Count == vsParamsServer.phonemes.Count) {
@@ -193,6 +232,77 @@ namespace OpenUtau.Core.Voicevox {
             }
             if (pitch_slur) {
                 VoicevoxUtils.AdjustF0ForSlur(VoicevoxUtils.NoteGroupsToVQuery(vNotes.ToArray(), phrase.timeAxis, true), vsParams.f0);
+            }
+            return vsParams;
+        }
+
+        /// <summary>句の F0 の先生 (NEUTRINO)。音素で書かれた句だけ (かなの句は VOICEVOX の先生のまま)。</summary>
+        static NeutrinoSinger TeacherOf(RenderPhrase phrase) {
+            var teacher = NeutrinoTeacher.Find(phrase);
+            if (teacher != null && VoicevoxUtils.IsPhonemeNoteCountMatch(phrase)) {
+                Log.Warning("Singing style needs a phoneme-based phonemizer (VOICEVOX JA); this phrase is written in kana, so the VOICEVOX teacher is used.");
+                return null;
+            }
+            return teacher;
+        }
+
+        /// 母音 (音量の基準を取る音素)。
+        static readonly HashSet<string> TeacherVowels = new HashSet<string> { "a", "i", "u", "e", "o", "N", "A", "I", "U", "E", "O" };
+        /// 母音の音量中央値の正規化先 (VOICEVOX の先生の典型値)、上限。
+        const double TeacherVowelVolume = 0.058;
+        const double TeacherVolumeMax = 0.25;
+
+        /// <summary>
+        /// NEUTRINO の先生で句を作る: 音素の置き方は画面 (句の音素の位置) のまま、F0 は先生の予測をそのまま、
+        /// 音量は先生の描画の RMS (25 ms) を、母音の中央値が VOICEVOX の先生の典型値になるよう揃える。
+        /// </summary>
+        private VoicevoxSynthParams TeacherSynthParams(RenderPhrase phrase, NeutrinoSinger teacher) {
+            var vsParams = PhonemeToVoicevoxSynthParams(phrase);
+            var t = NeutrinoRenderer.RenderTeacher(phrase, teacher);
+            int n = vsParams.f0.Count;
+            int head = vsParams.phonemes[0].frame_length;
+            int startFrame = VoicevoxUtils.ToFrame(VoicevoxUtils.GetSynthSpan(phrase).startMs);
+            double frameMs = 1000.0 / VoicevoxUtils.fps;
+            // 25 ms の RMS (中心窓) を累積和で引く
+            int win = Math.Max(1, (int)(0.025 * t.sampleRate));
+            var cum = new double[t.samples.Length + 1];
+            for (int i = 0; i < t.samples.Length; i++) {
+                cum[i + 1] = cum[i] + (double)t.samples[i] * t.samples[i];
+            }
+            double RmsAt(int k) {
+                int a = Math.Clamp(k - win / 2, 0, t.samples.Length);
+                int b = Math.Clamp(a + win, 0, t.samples.Length);
+                return b > a ? Math.Sqrt((cum[b] - cum[a]) / win) : 0;
+            }
+            double F0At(double pos) {
+                if (t.f0.Length == 0) return 0;
+                pos = Math.Clamp(pos, 0, t.f0.Length - 1);
+                int i0 = (int)Math.Floor(pos);
+                int i1 = Math.Min(i0 + 1, t.f0.Length - 1);
+                double w = pos - i0, a0 = t.f0[i0], a1 = t.f0[i1];
+                if (a0 > 0 && a1 > 0) return Math.Exp((1 - w) * Math.Log(a0) + w * Math.Log(a1));
+                double f = w < 0.5 ? a0 : a1;
+                return f > 0 ? f : 0;
+            }
+            var rms = new double[n];
+            for (int j = 0; j < n; j++) {
+                double ms = (startFrame + j - head + 0.5) * frameMs;
+                vsParams.f0[j] = F0At((ms - t.originMs) / NeutrinoRenderer.TeacherOutput.FrameMs);
+                rms[j] = RmsAt((int)Math.Round((ms - t.originMs) / 1000.0 * t.sampleRate));
+            }
+            var vowelRms = new List<double>();
+            int offset = 0;
+            foreach (var ph in vsParams.phonemes) {
+                if (TeacherVowels.Contains(ph.phoneme)) {
+                    for (int j = offset; j < offset + ph.frame_length && j < n; j++) vowelRms.Add(rms[j]);
+                }
+                offset += ph.frame_length;
+            }
+            vowelRms.Sort();
+            double median = vowelRms.Count > 0 ? vowelRms[vowelRms.Count / 2] : 0;
+            if (vowelRms.Count > 0 && vowelRms.Count % 2 == 0) median = (vowelRms[vowelRms.Count / 2 - 1] + vowelRms[vowelRms.Count / 2]) / 2;
+            for (int j = 0; j < n; j++) {
+                vsParams.volume[j] = median > 0 ? Math.Clamp(rms[j] / median * TeacherVowelVolume, 0, TeacherVolumeMax) : 0;
             }
             return vsParams;
         }
@@ -234,6 +344,11 @@ namespace OpenUtau.Core.Voicevox {
             return vNotes;
         }
 
+        /// <summary>NEUTRINO の音素化の句 (句ごとの声) を VOICEVOX で歌う時、VOICEVOX に無い音素 (息継ぎ・無音) を休符にする。</summary>
+        static string ToVoicevoxPhoneme(string phoneme) {
+            return phoneme == "br" || phoneme == "sil" ? "pau" : phoneme;
+        }
+
         private VoicevoxSynthParams PhonemeToVoicevoxSynthParams(RenderPhrase phrase) {
             VoicevoxSynthParams vsParams = new VoicevoxSynthParams();
             int headFrames = (int)Math.Round((VoicevoxUtils.headS * VoicevoxUtils.fps), MidpointRounding.AwayFromZero);
@@ -261,7 +376,7 @@ namespace OpenUtau.Core.Voicevox {
                     cursor = endFrame;
 
                     vsParams.phonemes.Add(new Phonemes() {
-                        phoneme = phrase.phones[i].phoneme,
+                        phoneme = ToVoicevoxPhoneme(phrase.phones[i].phoneme),
                         frame_length = length
                     });
                 }
@@ -284,6 +399,8 @@ namespace OpenUtau.Core.Voicevox {
         public UExpressionDescriptor[] GetSuggestedExpressions(USinger singer, URenderSettings renderSettings) {
             //under development
             var result = new List<UExpressionDescriptor> {
+                NeutrinoTeacher.Descriptor(),
+                PhraseVoice.Descriptor(),
                 //volumes
                 new UExpressionDescriptor{
                     name="input volume (curve)",

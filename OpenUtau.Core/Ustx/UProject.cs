@@ -189,6 +189,8 @@ namespace OpenUtau.Core.Ustx {
             foreach (var track in tracks) {
                 track.AfterLoad(this);
             }
+            // 歌手が決まった後・音符を読む前に、句ごとの声と歌い方を足す (音符の値が知らない表情として落ちないように)
+            Render.PhraseVoice.EnsureExpressions(this, refresh: true);
             if (voiceParts != null) {
                 parts.AddRange(voiceParts);
                 voiceParts = null;
@@ -213,6 +215,8 @@ namespace OpenUtau.Core.Ustx {
                 foreach (var track in tracks) {
                     track.Validate(options, this);
                 }
+                // トラックの歌手を NEUTRINO・VOICEVOX にした時 (新規作成を含む) に句ごとの声と歌い方を足す
+                Render.PhraseVoice.EnsureExpressions(this, refresh: false);
             }
             foreach (var part in parts) {
                 if (options.Part == null || options.Part == part) {

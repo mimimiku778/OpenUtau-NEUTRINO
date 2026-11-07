@@ -51,7 +51,9 @@ namespace OpenUtau.Core.Neutrino {
             Format.Ustx.DIR,
             NTYP,
             NMOD,
-            SMOC
+            SMOC,
+            NeutrinoTeacher.ABBR,
+            PhraseVoice.ABBR,
         };
 
         static readonly object lockObj = new object();
@@ -328,9 +330,11 @@ namespace OpenUtau.Core.Neutrino {
                             }
                         }
                     } else if (Version == NeutrinoVersion.V3) {
-                        // F0ファイル生成
+                        // F0ファイル生成 (F0 の先生がいればその歌手のモデルで予測する。声 (mel・波形) は自分のモデル)
                         if (!File.Exists(f0Path)) {
-                            ArgParam = $"\"{fullScorePath}\" \"{monoTimingPath}\" \"{f0Path}\" \"{melspecPath}\" \"{wavPath}\" \"{modelDir}\" --skip-timing --skip-melspec --skip-wav -k {toneShift} -m -t";
+                            var teacher = NeutrinoTeacher.Find(phrase);
+                            string f0ModelDir = teacher != null ? NeutrinoUtils.ModelDir(teacher) : modelDir;
+                            ArgParam = $"\"{fullScorePath}\" \"{monoTimingPath}\" \"{f0Path}\" \"{melspecPath}\" \"{wavPath}\" \"{f0ModelDir}\" --skip-timing --skip-melspec --skip-wav -k {toneShift} -m -t";
                             if (existNeutrinoClient) {
                                 ProcessRunner.Run(NeutrinoClientExe, ArgParam, Log.Logger);
                             } else {
@@ -493,6 +497,8 @@ namespace OpenUtau.Core.Neutrino {
                     defaultValue = 0,
                     isFlag = false
                 },
+                NeutrinoTeacher.Descriptor(),
+                PhraseVoice.Descriptor(),
             };
             return result.ToArray();
         }
@@ -551,6 +557,80 @@ namespace OpenUtau.Core.Neutrino {
         public override string ToString() => Renderers.NEUTRINO;
 
         /// <summary>
+        /// VOICEVOX の音素表記 (無声化の大文字の母音) を NEUTRINO の表記へ写す。NEUTRINO は大文字の母音を使わないので、
+        /// NEUTRINO の音素化の句には何もしない。VOICEVOX のトラックの句を NEUTRINO で歌う時 (句ごとの声・F0 の先生) に効く。
+        /// </summary>
+        protected override string MapSymbol(string symbol) {
+            switch (symbol) {
+                case "A": return "a";
+                case "I": return "i";
+                case "U": return "u";
+                case "E": return "e";
+                case "O": return "o";
+                default: return symbol;
+            }
+        }
+
+        /// <summary>先生の NEUTRINO が歌った句。f0 は FrameMs 刻み (0 = 無声)、コマ 0 とサンプル 0 は originMs (絶対 ms)。</summary>
+        public sealed class TeacherOutput {
+            public const double FrameMs = 10.0;
+            public double[] f0;
+            public float[] samples;
+            public int sampleRate;
+            public double originMs;
+        }
+
+        /// <summary>
+        /// 句を先生の NEUTRINO で歌わせる (音素の置き方は句の音素の位置のまま、F0 と波形は先生のモデル)。
+        /// 別の描画器 (VOICEVOX) が先生の F0・音量を使うための物。cache は nt-* に置く。
+        /// </summary>
+        public static TeacherOutput RenderTeacher(RenderPhrase phrase, NeutrinoSinger teacher) {
+            var r = new NeutrinoRenderer { singer = teacher };
+            lock (lockObj) {
+                r.SetUp();
+                if (r.setUpVersion != NeutrinoVersion.V3 || string.IsNullOrEmpty(r.NeutrinoExe)) {
+                    throw new Exception($"NEUTRINO teacher {teacher.Id} could not be set up.");
+                }
+                r.Layout(phrase);
+                int toneShift = phrase.phones[0] != null ? phrase.phones[0].toneShift : 0;
+                string dir = TeacherCacheDir(phrase, teacher);
+                Directory.CreateDirectory(dir);
+                r.fullScorePath = Path.Join(dir, "full_score.lab");
+                r.monoTimingPath = Path.Join(dir, "mono_timing.lab");
+                string f0Path = Path.Join(dir, "teacher.f0");
+                string melspecPath = Path.Join(dir, "teacher.melspec");
+                string wavPath = Path.Join(dir, "teacher.wav");
+                string modelDir = NeutrinoUtils.ModelDir(teacher);
+                if (!File.Exists(r.fullScorePath) || !File.Exists(r.monoTimingPath)) {
+                    r.ProcessPart(phrase);
+                }
+                string Args(string skip) => $"\"{r.fullScorePath}\" \"{r.monoTimingPath}\" \"{f0Path}\" \"{melspecPath}\" \"{wavPath}\" \"{modelDir}\" --skip-timing {skip} -k {toneShift} -m -t";
+                void Run(string args) {
+                    ProcessRunner.Run(r.existNeutrinoClient ? r.NeutrinoClientExe : r.NeutrinoExe, args, Log.Logger);
+                }
+                if (!File.Exists(f0Path)) {
+                    Run(Args("--skip-melspec --skip-wav"));
+                }
+                if (File.Exists(f0Path) && !File.Exists(melspecPath)) {
+                    Run(Args("--skip-f0 --skip-wav"));
+                }
+                if (File.Exists(melspecPath) && !File.Exists(wavPath)) {
+                    Run(Args("--skip-f0 --skip-melspec"));
+                }
+                if (!File.Exists(f0Path) || !File.Exists(wavPath)) {
+                    throw new Exception($"NEUTRINO teacher {teacher.Id} produced no f0/wav in {dir}.");
+                }
+                var output = new TeacherOutput { f0 = r.LoadFile(f0Path), originMs = phrase.positionMs - r.headMs };
+                using (var waveStream = new WaveFileReader(wavPath)) {
+                    // Wave.GetSamples は 44100 Hz へ変換して返す (先生の WAV は 48000 Hz)。時刻→サンプルの換算は変換後の速さで
+                    output.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0));
+                    output.sampleRate = 44100;
+                }
+                return output;
+            }
+        }
+
+        /// <summary>
         /// direct の句の、画面に描く音程。heard = 描画済みの素の F0 + 音符のビブラート + PITD(実際に鳴る線、無声は NaN)、
         /// under = heard − PITD(ペンで描いた高さから PITD を出す基準、無声は前後でつなぐ)。単位は MIDI×100。
         /// 素の F0 はこの句の cache(今の編集の分が未描画なら同じ句の最後に描いた素)から読む。
@@ -565,11 +645,77 @@ namespace OpenUtau.Core.Neutrino {
         static readonly System.Collections.Concurrent.ConcurrentDictionary<ulong, DirectPitchCurve> directPitchCache = new();
 
         public static DirectPitchCurve GetDirectPitch(RenderPhrase phrase) {
-            if (phrase?.renderer is not NeutrinoRenderer nr || phrase.phones.Length == 0 || !phrase.phones[0].direct
+            if (phrase == null || phrase.phones.Length == 0 || !phrase.phones[0].direct
                 || phrase.pitchDeviation == null || phrase.pitches.Length == 0) {
                 return null;
             }
-            return nr.LoadDirectPitch(phrase);
+            if (phrase.renderer is NeutrinoRenderer nr) {
+                return nr.LoadDirectPitch(phrase);
+            }
+            // VOICEVOX の句に NEUTRINO の F0 の先生が付いている時は、先生の F0 (+ ビブラート + PITD) が鳴る線
+            if (phrase.renderer is Voicevox.VoicevoxRenderer) {
+                var teacher = NeutrinoTeacher.Find(phrase);
+                if (teacher != null) {
+                    return LoadTeacherPitch(phrase, teacher);
+                }
+            }
+            return null;
+        }
+
+        static string TeacherCacheDir(RenderPhrase phrase, NeutrinoSinger teacher) {
+            int toneShift = phrase.phones[0] != null ? phrase.phones[0].toneShift : 0;
+            return Path.Join(PathManager.Inst.CachePath, $"nt-{phrase.preEffectHash:x16}_{teacher.voicebankNameHash:x16}_{toneShift}");
+        }
+
+        /// <summary>先生の描画済み F0 (RenderTeacher の cache) から、VOICEVOX が鳴らす線を作る。未描画なら null。</summary>
+        static DirectPitchCurve LoadTeacherPitch(RenderPhrase phrase, NeutrinoSinger teacher) {
+            try {
+                string f0File = Path.Join(TeacherCacheDir(phrase, teacher), "teacher.f0");
+                if (!File.Exists(f0File)) {
+                    return null;
+                }
+                if (directPitchCache.TryGetValue(phrase.hash, out var cached) && cached.source == f0File) {
+                    return cached;
+                }
+                var reader = new NeutrinoRenderer { singer = teacher };
+                double[] f0 = reader.LoadFile(f0File);
+                var axis = phrase.timeAxis;
+                // RenderTeacher と同じ原点 (句の頭から 1 小節前、HTSLabelRenderer.Layout の headMs)
+                double headMsLocal = Math.Round(60000.0 / axis.GetBpmAtTick(phrase.position) * axis.TimeSignatureAtTick(phrase.position).beatPerBar);
+                double originMs = phrase.positionMs - headMsLocal;
+                int n = f0.Length;
+                int pitchStart = phrase.position - phrase.leading;
+                int pitchEnd = pitchStart + phrase.pitches.Length * 5;
+                double shift = Math.Pow(2, -phrase.phones[0].toneShift / 12.0);
+                var curve = new DirectPitchCurve { ticks = new int[n], heard = new float[n], under = new float[n], source = f0File };
+                for (int k = 0; k < n; k++) {
+                    // VoicevoxRenderer.TeacherSynthParams と同じ時刻の当て方 (先生の f0 の k 番目 = originMs + k × 10 ms)
+                    double ms = originMs + k * TeacherOutput.FrameMs;
+                    int tick = axis.MsPosToTickPos(ms);
+                    curve.ticks[k] = tick;
+                    bool body = tick >= pitchStart && tick < pitchEnd;
+                    int idx = Math.Clamp((tick - pitchStart) / 5, 0, phrase.pitches.Length - 1);
+                    float dev = body ? phrase.pitchDeviation[idx] : 0;
+                    float pitd = body ? phrase.pitches[idx] - phrase.pitchesBeforeDeviation[idx] : 0;
+                    if (body && f0[k] > 0) {
+                        float c = (float)(MusicMath.FreqToTone(f0[k] * shift) * 100);
+                        curve.heard[k] = c + dev;
+                        curve.under[k] = c + dev - pitd;
+                    } else {
+                        curve.heard[k] = float.NaN;
+                        curve.under[k] = float.NaN;
+                    }
+                }
+                FillGaps(curve.under);
+                if (directPitchCache.Count > 4000) {
+                    directPitchCache.Clear();
+                }
+                directPitchCache[phrase.hash] = curve;
+                return curve;
+            } catch (Exception e) {
+                Log.Error(e, "Failed to load NEUTRINO teacher pitch.");
+                return null;
+            }
         }
 
         DirectPitchCurve LoadDirectPitch(RenderPhrase phrase) {
