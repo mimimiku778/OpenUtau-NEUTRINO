@@ -386,18 +386,13 @@ jobs:
             LATEST_UPSTREAM_SHA=$(jq -r '.latest.upstream_sha // ""' $st)
             LATEST_UPSTREAM_DATE=$(jq -r '.latest.upstream_date // ""' $st)
           fi
-          title="OpenUtau NEUTRINO対応版 ${SOURCE_DATE} (${short})"
-          [ -z "$BASE_VERSION" ] || title+=" v${BASE_VERSION}"
-          [ -z "$LATEST_VERSION" ] || title+=" / 最新版 v${LATEST_VERSION}"
+          title="OpenUtau NEUTRINO対応版"  # 版やコミットは載せない
           if $exists; then
             [ ${#files[@]} -eq 0 ] || gh release upload "$tag" "${files[@]}" --clobber
           else
             gh release create "$tag" "${files[@]}" --target "$GITHUB_REF_NAME" --latest --title "$title" --notes "準備中"
           fi
           packaging/compose.sh release > notes.md
-          { echo; echo "## ファイル"; echo; echo '```'
-            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.assets[] | "\(.digest // "" | sub("^sha256:"; ""))  \(.name)"' | sort -k2
-            echo '```'; } >> notes.md
           gh release edit "$tag" --title "$title" --notes-file notes.md --latest
           # 作れた版の記録だけを更新する
           new=$(cat "$st")
