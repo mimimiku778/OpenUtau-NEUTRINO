@@ -6,3 +6,15 @@ c5cb0f47243a012d20c79d73b58d354b9149d7af rokujyushi/OpenUtau **mel 編集**: v3 
 7a637f201e12ad5840cef3371d6fe8fb8fb187e0 pika-02-03/OpenUtau-NEUTRINO **direct でもビブラートと PITD が効く**: direct を on にした句でも、NEUTRINO の素の F0 に、音符のビブラートと PITD(ピッチのカーブ)を足して鳴らします。
 7ee7cbc8e951d3338f1fa45c88394b8cf8b32498 pika-02-03/OpenUtau-NEUTRINO **鳴る音程を画面に描く**: direct の句では、画面の灰色の線(最終ピッチ)が実際に鳴る F0 になり、ペンもその高さを基準に描けます。
 4e6c5f7c3e890da4d003b5d8f39653b74ef7789a pika-02-03/OpenUtau-NEUTRINO **Mac の Shift+ホイールで横スクロール**: ピアノロールとトラックの画面で、Shift を押しながらホイールを回すと横に動きます。
+# 画面なしの書き出し (CLI): 本家への提案 openutau/OpenUtau#2162 (christianazinn さん、head 06990cf5) の9コミットと、配布版に合わせる直し。
+# 提案側が force-push されても消えないよう、pika-02-03/OpenUtau-NEUTRINO の neutrino-cli-dist に cherry-pick した物を指す。説明が「-」の行は一覧に載せない。
+003f50ede862081ee40e86dbc43c53930eb74ef4 pika-02-03/OpenUtau-NEUTRINO -
+fd532cd6091d1c21762523d6fcb8adec6fdab69d pika-02-03/OpenUtau-NEUTRINO -
+c5a30d1dc371766cb67a54ec9573ef6085171e01 pika-02-03/OpenUtau-NEUTRINO -
+75a3d9461f090064f0950fafa65a29bee9f41aa7 pika-02-03/OpenUtau-NEUTRINO -
+3f019bce1117f1926fe607cbc2a81cf2c7eb2724 pika-02-03/OpenUtau-NEUTRINO -
+fb18986b35c4a06a6727756dc68d7c41aaaf7358 pika-02-03/OpenUtau-NEUTRINO -
+a9b35dd1070470c26565073001fc0ba85c6d6410 pika-02-03/OpenUtau-NEUTRINO -
+59b1ec0c9a6fbe6d34c2431de682374c4adf6a0a pika-02-03/OpenUtau-NEUTRINO -
+e4814b9629181e60d6f2478c9180119cdc6c3cf3 pika-02-03/OpenUtau-NEUTRINO -
+d8c3da40b535c7bc35108dfcb90e4abea883d345 pika-02-03/OpenUtau-NEUTRINO **画面なしの書き出し(CLI)**: 本家への提案 [openutau/OpenUtau#2162](https://github.com/openutau/OpenUtau/pull/2162)(christianazinn さん、まだ本家に入っていません)を足し、NEUTRINO 対応版で動くように直しています。使い方は上の「使い方」にあります。

@@ -6,7 +6,7 @@ rokujyushi さんの NEUTRINO 対応([openutau/OpenUtau#2136](https://github.com
 
 ## ダウンロード
 
-- **Mac**(Apple Silicon): [OpenUtau-NEUTRINO-macos-arm64.dmg](https://github.com/{{BUILD_REPO}}/releases/latest/download/OpenUtau-NEUTRINO-macos-arm64.dmg)
-- **Windows**(64bit、動作未確認): [OpenUtau-NEUTRINO-win-x64.zip](https://github.com/{{BUILD_REPO}}/releases/latest/download/OpenUtau-NEUTRINO-win-x64.zip)
+{{DOWNLOADS}}
+
 - 過去の版: [Releases](https://github.com/{{BUILD_REPO}}/releases)
 
