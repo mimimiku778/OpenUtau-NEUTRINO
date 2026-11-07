@@ -32,6 +32,9 @@ namespace OpenUtau.Core.Headless {
             var inputPath = RequireInputPath(job.InputPath);
             var outputPath = RequireOutputPath(job.OutputPath);
             EnsureOutputWritable(outputPath);
+            // 再生管理を先に作り終えておく。音素化の裏スレッドが初めて作ると、購読の登録だけ済んだ
+            // 作りかけの所へ下の LoadProjectNotification が届き、空のメトロノームを止めに行って落ちる。
+            _ = PlaybackManager.Inst;
 
             var project = Formats.ReadProject(new[] { inputPath });
             if (project == null) {
@@ -41,6 +44,9 @@ namespace OpenUtau.Core.Headless {
             host.ClearErrors();
 
             ApplyOverrides(project, job);
+            // 画面なしでは裏の組み立て役を止め、フレーズをその場で組み立てさせる
+            // (組み立て役が残ると、検査の時点で renderPhrases がまだ空のことがある)
+            Pipeline.PhraseSourceBuilder.Current?.Dispose();
             project.ValidateFull();
             await DocManager.Inst.PhonemizerRunner.WaitForIdleAsync();
             cancellationToken.ThrowIfCancellationRequested();
@@ -57,6 +63,33 @@ namespace OpenUtau.Core.Headless {
             }
             if (new FileInfo(outputPath).Length <= 46) {
                 throw new HeadlessRenderException($"Render failed; output contains no audio data: {outputPath}");
+            }
+            DumpDirectPitch(project);
+        }
+
+        /// <summary>
+        /// OPENUTAU_DUMP_DIRECT_PITCH=<path> の時だけ、NEUTRINO direct の句ごとに画面へ描く線(GetDirectPitch)を JSON Lines で書く。
+        /// 画面を開かずに、描く線が実際に鳴った F0 と同じかを確かめるため。
+        /// </summary>
+        static void DumpDirectPitch(UProject project) {
+            var path = Environment.GetEnvironmentVariable("OPENUTAU_DUMP_DIRECT_PITCH");
+            if (string.IsNullOrWhiteSpace(path)) {
+                return;
+            }
+            using var w = new StreamWriter(path);
+            foreach (var part in project.parts.OfType<UVoicePart>()) {
+                foreach (var phrase in part.renderPhrases) {
+                    var c = OpenUtau.Core.Neutrino.NeutrinoRenderer.GetDirectPitch(phrase);
+                    if (c == null) {
+                        continue;
+                    }
+                    w.WriteLine(System.Text.Json.JsonSerializer.Serialize(new {
+                        part = part.name, position = phrase.position, preEffectHash = phrase.preEffectHash.ToString("x16"),
+                        source = c.source, ticks = c.ticks,
+                        heard = c.heard.Select(v => float.IsNaN(v) ? (float?)null : v),
+                        under = c.under,
+                    }));
+                }
             }
         }
 

@@ -123,9 +123,11 @@ namespace OpenUtau.App {
                     exception = e;
                 }
             });
-            try {
-                thread.SetApartmentState(ApartmentState.MTA);
-            } catch {
+            if (OperatingSystem.IsWindows()) {
+                try {
+                    thread.SetApartmentState(ApartmentState.MTA);
+                } catch {
+                }
             }
             thread.Start();
             thread.Join();

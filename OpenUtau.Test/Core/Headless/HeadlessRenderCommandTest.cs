@@ -345,7 +345,7 @@ namespace OpenUtau.Core.Headless {
             public bool SupportsRenderPitch => false;
             public bool SupportsExpression(UExpressionDescriptor descriptor) => false;
             public RenderResult Layout(RenderPhrase phrase) => new RenderResult { samples = Array.Empty<float>() };
-            public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender = false) {
+            public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender = false, RenderPhraseEvents? renderEvents = null) {
                 return Task.FromResult(Layout(phrase));
             }
             public RenderPitchResult LoadRenderedPitch(RenderPhrase phrase) {
