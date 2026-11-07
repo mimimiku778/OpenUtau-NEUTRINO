@@ -1211,7 +1211,9 @@ namespace OpenUtau.App.Controls {
             var size = control.Bounds.Size;
             var delta = args.Delta;
             if (args.KeyModifiers == KeyModifiers.None || args.KeyModifiers == KeyModifiers.Shift) {
-                if (args.KeyModifiers == KeyModifiers.Shift) {
+                // Shift+wheel scrolls sideways. macOS already turns it into a horizontal
+                // delta, so swap only a wheel that came in vertical, or it turns back.
+                if (args.KeyModifiers == KeyModifiers.Shift && delta.X == 0) {
                     delta = new Vector(delta.Y, delta.X);
                 }
                 if (delta.X != 0) {
