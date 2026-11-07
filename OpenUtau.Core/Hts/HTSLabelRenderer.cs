@@ -289,6 +289,12 @@ namespace OpenUtau.Core.Hts {
             return monoLabels;
         }
 
+        /// <summary>
+        /// ラベルへ書く音素の名前。既定はそのまま。別の音素の表記 (VOICEVOX 等) の句を
+        /// NEUTRINO の歌い方の歌手に歌わせる時に、その音素集合の名前へ写す。
+        /// </summary>
+        protected virtual string MapSymbol(string symbol) => symbol;
+
         public void ProcessPart(RenderPhrase phrase) {
             if (timeAxis == null) {
                 timeAxis = phrase.timeAxis;
@@ -370,25 +376,25 @@ namespace OpenUtau.Core.Hts {
                             monoLabels_[^1] = lastMonoLabel;
                         }
                         monoLabels_.Add(new monoLabel() {
-                            symbol = phone.phoneme,
+                            symbol = MapSymbol(phone.phoneme),
                             startMs = phoneStartMs,
                             endMs = phoneEndMs
                         });
                     }
 
                     lastBasePhonemes = phonemes;
-                    HTSNote htsNote = makeHtsNote(phonemes.Select(phone => phone.phoneme).ToArray(), note, startTick, headMs);
+                    HTSNote htsNote = makeHtsNote(phonemes.Select(phone => MapSymbol(phone.phoneme)).ToArray(), note, startTick, headMs);
                     tuples.Add(Tuple.Create(htsNote, noteIndex));
                 } else if (IsSyllableVowelExtensionNote(note) && lastBasePhonemes.Length > 0) {
                     // 拍点延長ノートは、直前の通常ノートの最後の母音を引き延ばす
                     var extensionPhoneme = FindLastVowelOrLastPhoneme(lastBasePhonemes);
                     if (!string.IsNullOrEmpty(extensionPhoneme.phoneme)) {
-                        var htsNote = makeHtsNote(extensionPhoneme.phoneme, note, startTick, headMs);
+                        var htsNote = makeHtsNote(MapSymbol(extensionPhoneme.phoneme), note, startTick, headMs);
                         var extensionStartMs = htsNote.startMs;
                         var extensionEndMs = htsNote.endMs;
 
                         var lastMonoLabel = monoLabels_[^1];
-                        if (lastMonoLabel.symbol == extensionPhoneme.phoneme &&
+                        if (lastMonoLabel.symbol == MapSymbol(extensionPhoneme.phoneme) &&
                             lastMonoLabel.startMs < extensionStartMs &&
                             extensionStartMs < lastMonoLabel.endMs) {
                             lastMonoLabel.endMs = extensionStartMs;
@@ -396,7 +402,7 @@ namespace OpenUtau.Core.Hts {
                         }
 
                         monoLabels_.Add(new monoLabel() {
-                            symbol = extensionPhoneme.phoneme,
+                            symbol = MapSymbol(extensionPhoneme.phoneme),
                             startMs = extensionStartMs,
                             endMs = extensionEndMs
                         });

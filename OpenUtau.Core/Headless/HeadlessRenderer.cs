@@ -84,7 +84,7 @@ namespace OpenUtau.Core.Headless {
                         continue;
                     }
                     w.WriteLine(System.Text.Json.JsonSerializer.Serialize(new {
-                        part = part.name, position = phrase.position, preEffectHash = phrase.preEffectHash.ToString("x16"),
+                        part = part.name, position = phrase.position, singer = phrase.singer?.Id, renderer = phrase.renderer?.ToString(), preEffectHash = phrase.preEffectHash.ToString("x16"),
                         source = c.source, ticks = c.ticks,
                         heard = c.heard.Select(v => float.IsNaN(v) ? (float?)null : v),
                         under = c.under,
