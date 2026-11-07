@@ -62,7 +62,7 @@ namespace OpenUtau.Core.Format {
         public static float[] GetStereoSamples(WaveStream waveStream) {
             ISampleProvider provider = waveStream.ToSampleProvider();
             if (provider.WaveFormat.SampleRate != 44100) {
-                provider = new WdlResamplingSampleProvider(provider, 44100);
+                provider = new SincResamplingSampleProvider(provider, 44100);
             }
             if (provider.WaveFormat.Channels > 2) {
                 provider = provider.ToStereo();
@@ -91,7 +91,7 @@ namespace OpenUtau.Core.Format {
 
         public static float[] GetSamples(ISampleProvider sampleProvider) {
             if (sampleProvider.WaveFormat.SampleRate != 44100) {
-                sampleProvider = new WdlResamplingSampleProvider(sampleProvider, 44100);
+                sampleProvider = new SincResamplingSampleProvider(sampleProvider, 44100);
             }
             List<float> samples = new List<float>();
             float[] buffer = new float[44100];
