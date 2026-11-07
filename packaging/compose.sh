@@ -27,18 +27,18 @@ downloads() {
     echo "| **最新版** OpenUtau v${LATEST_VERSION} | [dmg]($b/OpenUtau-NEUTRINO-latest-macos-arm64.dmg) | [zip]($b/OpenUtau-NEUTRINO-latest-win-x64.zip) |"
   fi
   echo
-  echo "固定版と最新版の違いは、下の「本人の配布版・提案との違い」にあります。同じ名前のアプリなので、入れるのはどちらか一方です。"
+  echo "固定版と最新版の違いは、下の「本人の配布版・PR との違い」にあります。同じ名前のアプリなので、入れるのはどちらか一方です。"
 }
 # 2種類の版の説明。
 flavors() {
   echo "- 2種類を配っています。NEUTRINO 対応と上の変更は同じで、OpenUtau 本体の版だけが違います。同じ名前のアプリなので、入れるのはどちらか一方です。"
   if [ -n "$BASE_VERSION" ]; then
-    echo "  - **固定版**(ファイル名に \`latest\` が付かない方): OpenUtau v${BASE_VERSION}。提案が本家から最後に取り込んだ版のままです。"
+    echo "  - **固定版**(ファイル名に \`latest\` が付かない方): OpenUtau v${BASE_VERSION}。PR のブランチが本家から最後に取り込んだ版のままです。"
   else
     echo "  - **固定版**は、この版では作れませんでした。"
   fi
   if [ -n "$LATEST_VERSION" ]; then
-    echo "  - **最新版**(ファイル名に \`latest\` が付く方): OpenUtau v${LATEST_VERSION}。本家の最新(master の [\`${LATEST_UPSTREAM_SHA:0:8}\`](https://github.com/openutau/OpenUtau/commit/${LATEST_UPSTREAM_SHA})、${LATEST_UPSTREAM_DATE})を混ぜたものです。提案の作者も本家も試していない組み合わせなので、動くとは限りません。本家が更新されるたびに作り直します。"
+    echo "  - **最新版**(ファイル名に \`latest\` が付く方): OpenUtau v${LATEST_VERSION}。本家の最新(master の [\`${LATEST_UPSTREAM_SHA:0:8}\`](https://github.com/openutau/OpenUtau/commit/${LATEST_UPSTREAM_SHA})、${LATEST_UPSTREAM_DATE})を混ぜたものです。PR の作者も本家も試していない組み合わせなので、動くとは限りません。本家が更新されるたびに作り直します。"
   else
     echo "  - **最新版**(本家の最新を混ぜたもの)は、今は作れていません。"
   fi

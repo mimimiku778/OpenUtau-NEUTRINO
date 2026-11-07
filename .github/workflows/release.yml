@@ -10,12 +10,12 @@ name: NEUTRINO release
 on:
   schedule:
     - cron: "0 21 * * *"   # 毎日 06:00 JST
-  # 足すコミットの一覧かこの workflow を変えたら、朝を待たずに確かめる (変わっていなければ何もしない)
+  # 足すコミットの一覧かこの workflow を変えたら、朝を待たずに確かめる。
+  # 説明文の部品だけを変えた時は、ビルドせずに README と Release の本文だけを作り直す。
   push:
     branches: [release-kit]
     paths:
-      - packaging/extra-commits.txt
-      - packaging/extra-commits-latest.txt
+      - packaging/**
       - .github/workflows/release.yml
   workflow_dispatch:
     inputs:
@@ -89,7 +89,11 @@ jobs:
             flavors+=(latest)
           fi
           if [ ${#flavors[@]} -eq 0 ]; then
-            echo "action=skip" >> "$GITHUB_OUTPUT"
+            if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+              echo "action=docs" >> "$GITHUB_OUTPUT"   # 説明文だけを作り直す
+            else
+              echo "action=skip" >> "$GITHUB_OUTPUT"
+            fi
             echo "unchanged: $sha / upstream $up"
             exit 0
           fi
@@ -329,8 +333,8 @@ jobs:
 
   release:
     needs: [check, mac, windows]
-    # どちらかの版が作れなくても、作れた方は出す
-    if: always() && needs.check.outputs.action == 'build'
+    # どちらかの版が作れなくても、作れた方は出す。docs の時はビルドせずに説明文だけを作り直す。
+    if: always() && (needs.check.outputs.action == 'build' || needs.check.outputs.action == 'docs')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -338,7 +342,8 @@ jobs:
         with: { path: dist, merge-multiple: true }
       - env:
           GH_TOKEN: ${{ github.token }}
-          FLAVORS: ${{ needs.check.outputs.flavors }}
+          ACTION: ${{ needs.check.outputs.action }}
+          FLAVORS: ${{ needs.check.outputs.flavors || '[]' }}
           SOURCE_REPO: ${{ env.SRC_REPO }}
           SOURCE_REF: ${{ env.SRC_REF }}
           SOURCE_SHA: ${{ needs.check.outputs.sha }}
@@ -363,10 +368,13 @@ jobs:
           elif wanted fixed; then failed+=("固定版"); fi
           if built "-latest"; then latest_ok=true; files+=(dist/OpenUtau-NEUTRINO-latest-macos-arm64.dmg dist/OpenUtau-NEUTRINO-latest-win-x64.zip)
           elif wanted latest; then failed+=("最新版"); fi
-          if [ ${#files[@]} -eq 0 ]; then
+          if [ ${#files[@]} -eq 0 ] && [ "$ACTION" != "docs" ]; then
             echo "::error::どちらの版も作れませんでした"; exit 1
           fi
           exists=false; gh release view "$tag" > /dev/null 2>&1 && exists=true
+          if [ "$ACTION" = "docs" ] && ! $exists; then
+            echo "::error::説明文を作り直す Release ${tag} がありません"; exit 1
+          fi
           # 今回作らなかった版は、同じ Release に前に出した物が残っていれば、その記録を使う
           export BASE_VERSION="" LATEST_VERSION="" LATEST_UPSTREAM_SHA="" LATEST_UPSTREAM_DATE=""
           if $fixed_ok; then BASE_VERSION=$NEW_VERSION
@@ -382,7 +390,7 @@ jobs:
           [ -z "$BASE_VERSION" ] || title+=" v${BASE_VERSION}"
           [ -z "$LATEST_VERSION" ] || title+=" / 最新版 v${LATEST_VERSION}"
           if $exists; then
-            gh release upload "$tag" "${files[@]}" --clobber
+            [ ${#files[@]} -eq 0 ] || gh release upload "$tag" "${files[@]}" --clobber
           else
             gh release create "$tag" "${files[@]}" --target "$GITHUB_REF_NAME" --latest --title "$title" --notes "準備中"
           fi
@@ -410,7 +418,7 @@ jobs:
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$st" README.md
           if ! git diff --cached --quiet; then
-            git commit -m "chore: ${tag} を配布"
+            if [ "$ACTION" = "docs" ]; then git commit -m "chore: ${tag} の説明を作り直す"; else git commit -m "chore: ${tag} を配布"; fi
             git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"
           fi
           if [ ${#failed[@]} -gt 0 ]; then
