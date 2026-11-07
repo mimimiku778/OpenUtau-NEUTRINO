@@ -1,6 +1,6 @@
-## 本人の配布版・提案との違い
+## 本人の配布版・PR との違い
 
-提案のソース({{SOURCE_REPO}} の `{{SOURCE_REF}}` ブランチ、コミット [`{{SOURCE_SHORT}}`](https://github.com/{{SOURCE_REPO}}/commit/{{SOURCE_SHA}})、{{SOURCE_DATE}})に、次の変更を足してビルドしています。
+PR のソース({{SOURCE_REPO}} の `{{SOURCE_REF}}` ブランチ、コミット [`{{SOURCE_SHORT}}`](https://github.com/{{SOURCE_REPO}}/commit/{{SOURCE_SHA}})、{{SOURCE_DATE}})に、次の変更を足してビルドしています。
 
 {{CHANGES}}
 
