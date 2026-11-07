@@ -16,13 +16,13 @@ downloads() {
   echo "| | Mac | Windows(動作未確認) |"
   echo "|---|---|---|"
   if [ -n "$BASE_VERSION" ]; then
-    echo "| 固定版 | [dmg]($b/OpenUtau-NEUTRINO-macos-arm64.dmg) | [zip]($b/OpenUtau-NEUTRINO-win-x64.zip) |"
+    echo "| 固定版(OpenUtau ${BASE_VERSION}) | [dmg]($b/OpenUtau-NEUTRINO-macos-arm64.dmg) | [zip]($b/OpenUtau-NEUTRINO-win-x64.zip) |"
   fi
   if [ -n "$LATEST_VERSION" ]; then
-    echo "| 最新版 | [dmg]($b/OpenUtau-NEUTRINO-latest-macos-arm64.dmg) | [zip]($b/OpenUtau-NEUTRINO-latest-win-x64.zip) |"
+    echo "| 最新版(本家 [OpenUtau](https://github.com/openutau/OpenUtau) の最新) | [dmg]($b/OpenUtau-NEUTRINO-latest-macos-arm64.dmg) | [zip]($b/OpenUtau-NEUTRINO-latest-win-x64.zip) |"
   fi
   echo
-  echo "最新版は本家 OpenUtau の最新を混ぜたもの(動作保証なし)。入れるのはどちらか一方です。"
+  echo "固定版は PR のまま、最新版は本家の最新を混ぜたものです(動作保証なし)。入れるのはどちらか一方です。"
 }
 part() {
   while IFS= read -r line; do
@@ -35,7 +35,7 @@ part() {
 }
 case "${1:-}" in
   readme)  { part top; part howto; part about; part notice; } ;;
-  release) { echo "最新版(ファイル名に latest)は本家 OpenUtau の最新を混ぜたもの(動作保証なし)。入れるのはどちらか一方です。"; echo; part howto; part about; part notice; } ;;
+  release) { echo "固定版は OpenUtau ${BASE_VERSION}(PR のまま)、最新版(ファイル名に latest)は本家 [OpenUtau](https://github.com/openutau/OpenUtau) の最新を混ぜたものです(動作保証なし)。入れるのはどちらか一方です。"; echo; part howto; part about; part notice; } ;;
   mac)     { echo "# OpenUtau NEUTRINO対応版(非公式)"; echo; part howto; part about; part notice; } ;;
   windows) { echo "# OpenUtau NEUTRINO対応版(非公式)"; echo; part howto; part about; part notice; } ;;
   *) echo "usage: $0 readme|release|mac|windows" >&2; exit 2 ;;
