@@ -1173,7 +1173,8 @@ namespace OpenUtau.App.ViewModels {
             if (track.TryGetExpDescriptor(Project, expKey, out var descriptor)) {
                 // Masked curves are for expression graphs, which read them whatever the renderer.
                 return descriptor.type == UExpressionType.MaskedCurve
-                    || track.RendererSettings.Renderer.SupportsExpression(descriptor);
+                    || (track.RendererSettings.Renderer.SupportsExpression(descriptor)
+                        && !OpenUtau.Core.Neutrino.NeutrinoRenderer.HiddenFor(track.Singer, expKey));
             }
             if (expKey == track.VoiceColorExp.abbr) {
                 return track.RendererSettings.Renderer.SupportsExpression(track.VoiceColorExp);

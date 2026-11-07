@@ -149,7 +149,8 @@ namespace OpenUtau.Core.Ustx {
             var exps = project.expressions.Keys.ToList();
             exps.Union(TrackExpressions.Select(exp => exp.abbr));
             foreach (var abbr in exps) {
-                if (TryGetExpDescriptor(project, abbr, out var descriptor) && RendererSettings.Renderer.SupportsExpression(descriptor)) {
+                if (TryGetExpDescriptor(project, abbr, out var descriptor) && RendererSettings.Renderer.SupportsExpression(descriptor)
+                    && !Neutrino.NeutrinoRenderer.HiddenFor(Singer, abbr)) {
                     list.Add(descriptor);
                 }
             }
