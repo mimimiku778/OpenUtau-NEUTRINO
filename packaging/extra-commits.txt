@@ -1,5 +1,8 @@
-# 元のソース (PR の neutrino ブランチ) に足してビルドするコミット。
-# 1行に1つ: <コミット(40桁)> <説明>。説明は README・Release・同梱の説明書に載る。
-# コミットは元のソースと同じリポジトリ (rokujyushi/OpenUtau) のもの。
+# 元のソース (PR の neutrino ブランチ) に足してビルドするコミット。上から順に当てる。
+# 1行に1つ: <コミット(40桁)> <そのコミットがあるリポジトリ> <説明>
+# 説明は README・Release・同梱の説明書の「本人の配布版・提案との違い」に載る。
 # PR に同じ変更が入ったら自動で飛ばす。当たらなくなったらビルドが止まるので、この行を見直す。
-c5cb0f47243a012d20c79d73b58d354b9149d7af メルスペクトログラムの編集。v3 の歌声でも「声色(GENC)」と「明るさ(TENC)」のカーブが効くようにします。rokujyushi さんの試作で、まだ PR には入っていません(`Editid-Mel-spectrogram` ブランチ)。
+c5cb0f47243a012d20c79d73b58d354b9149d7af rokujyushi/OpenUtau **mel 編集**: v3 の歌声でも「声色(GENC)」と「明るさ(TENC)」のカーブが効きます。rokujyushi さんの試作で、提案にはまだ入っていません(`Editid-Mel-spectrogram` ブランチ)。
+7a637f201e12ad5840cef3371d6fe8fb8fb187e0 pika-02-03/OpenUtau-NEUTRINO **direct でもビブラートと PITD が効く**: direct を on にした句でも、NEUTRINO の素の F0 に、音符のビブラートと PITD(ピッチのカーブ)を足して鳴らします。
+7ee7cbc8e951d3338f1fa45c88394b8cf8b32498 pika-02-03/OpenUtau-NEUTRINO **鳴る音程を画面に描く**: direct の句では、画面の灰色の線(最終ピッチ)が実際に鳴る F0 になり、ペンもその高さを基準に描けます。
+4e6c5f7c3e890da4d003b5d8f39653b74ef7789a pika-02-03/OpenUtau-NEUTRINO **Mac の Shift+ホイールで横スクロール**: ピアノロールとトラックの画面で、Shift を押しながらホイールを回すと横に動きます。

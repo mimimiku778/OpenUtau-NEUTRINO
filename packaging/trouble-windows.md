@@ -1,3 +1,0 @@
-- **Windows で警告が出て開けない**: 「詳細情報」→「実行」を押します。毎回出る時は、手順2のブロックの解除をしてから展開し直します。
-- **Windows でモデルを足した・消した**: `register-neutrino.bat` をもう一度実行し、OpenUtau を起動し直します。
-- **Windows で登録を外したい**: `unregister-neutrino.bat` をダブルクリックします。登録で作ったものだけを消し、NEUTRINO は消しません。そのあと OpenUtau のフォルダごと削除すれば、すべて消えます。
