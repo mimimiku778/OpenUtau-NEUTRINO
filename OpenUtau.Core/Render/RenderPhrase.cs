@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -194,6 +194,12 @@ namespace OpenUtau.Core.Render {
 
         public readonly float[] pitches;
         public readonly float[] pitchesBeforeDeviation;
+        /// <summary>
+        /// Cents to add on top of a renderer's own predicted pitch: note vibrato + PITD
+        /// (no note steps, no portamento). Used by NEUTRINO "direct" to keep NEUTRINO's
+        /// own F0 and apply only the user's edits.
+        /// </summary>
+        public readonly float[] pitchDeviation;
         public readonly float[] dynamics;
         public readonly float[] gender;
         public readonly float[] breathiness;
@@ -287,6 +293,8 @@ namespace OpenUtau.Core.Render {
             // bends, and where rendered pitch falls back to.
             float[]? pitchesBeforeVibrato = source.ExpressionGraph != null ? pitches.ToArray() : null;
             // Vibrato
+            // NEUTRINO direct: the note steps, to tell the vibrato apart below.
+            var stepPitches = pitches.ToArray();
             foreach (int noteIdx in uNotes) {
                 var note = notesOf[noteIdx];
                 if (note.Vibrato.Length <= 0) {
@@ -303,6 +311,10 @@ namespace OpenUtau.Core.Render {
                 }
             }
             float[]? vibratoPitches = source.ExpressionGraph != null ? pitches.ToArray() : null;
+            var vibratoOffsets = new float[pitches.Length];
+            for (int i = 0; i < pitches.Length; ++i) {
+                vibratoOffsets[i] = pitches[i] - stepPitches[i];
+            }
             // Pitch points
             foreach (int noteIdx in uNotes) {
                 var note = notesOf[noteIdx];
@@ -448,6 +460,10 @@ namespace OpenUtau.Core.Render {
                 for (int i = 0; i < pitches.Length; ++i) {
                     pitches[i] += pitchCurve.Sample(pitchStart + i * pitchInterval);
                 }
+            }
+            pitchDeviation = new float[pitches.Length];
+            for (int i = 0; i < pitches.Length; ++i) {
+                pitchDeviation[i] = vibratoOffsets[i] + pitches[i] - pitchesBeforeDeviation[i];
             }
 
             // The track's expression graph, on the same tick grid as the drawn curves: first the pitch, then the curves.

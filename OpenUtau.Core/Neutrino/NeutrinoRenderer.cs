@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -250,7 +250,9 @@ namespace OpenUtau.Core.Neutrino {
                                     int headFrames = (int)Math.Round(headMs / framePeriod);
                                     int tailFrames = (int)Math.Round(tailMs / framePeriod);
                                     double[] editorF0 = SampleCurve(phrase, phrase.pitches, 0, framePeriod, totalFrames, headFrames, tailFrames, x => MusicMath.ToneToFreq(x * 0.01));
-                                    SaveFile(editorf0Path, editorF0);
+                                    KeepUnvoiced(f0, editorF0);
+                                    KeepPredictedInBreaths(f0, editorF0, monoTimingPath, framePeriod);
+                                SaveFile(editorf0Path, editorF0);
                                     ArgParam = $"\"{editorf0Path}\" \"{melspecPath}\" \"{modelDir}{nsf}.bin\" \"{wavPath}\" -l \"{monoTimingPath}\" -n 1 -p {numThreads} -s{(int)sampleRate / 1000} -m -t";
                                 }
                                 if (File.Exists(VocoderClientExe)) {
@@ -298,6 +300,7 @@ namespace OpenUtau.Core.Neutrino {
                                     int tailFrames = (int)Math.Round(tailMs / framePeriod);
 
                                     var editorF0 = SampleCurve(phrase, phrase.pitches, 0, framePeriod, totalFrames, headFrames, tailFrames, x => MusicMath.ToneToFreq(x * 0.01));
+                                    KeepUnvoiced(f0, editorF0);
                                     var gender = SampleCurve(phrase, phrase.gender, 0.5, framePeriod, totalFrames, headFrames, tailFrames, x => 0.5 + 0.005 * x);
                                     var tension = SampleCurve(phrase, phrase.tension, 0.5, framePeriod, totalFrames, headFrames, tailFrames, x => 0.5 + 0.005 * x);
                                     var breathiness = SampleCurve(phrase, phrase.breathiness, 0.5, framePeriod, totalFrames, headFrames, tailFrames, x => 0.5 + 0.005 * x);
@@ -340,13 +343,16 @@ namespace OpenUtau.Core.Neutrino {
                         //メルスペクトグラムファイル生成
                         if (File.Exists(f0Path) && !File.Exists(melspecPath)) {
                             if (phrase.phones[0].direct) {
-                                ArgParam = $"\"{fullScorePath}\" \"{monoTimingPath}\" \"{f0Path}\" \"{melspecPath}\" \"{wavPath}\" \"{modelDir}\" --skip-timing --skip-f0 --skip-wav -k {toneShift} -m -t";
+                                string directF0 = DirectF0(phrase, f0Path, editorf0Path, monoTimingPath, headMs, tailMs);
+                                ArgParam = $"\"{fullScorePath}\" \"{monoTimingPath}\" \"{directF0}\" \"{melspecPath}\" \"{wavPath}\" \"{modelDir}\" --skip-timing --skip-f0 --skip-wav -k {toneShift} -m -t";
                             } else {
                                 double[] f0 = LoadFile(f0Path);
                                 int totalFrames = f0.Length;
                                 int headFrames = (int)Math.Ceiling(headMs / 1000.0 * 99.84);
                                 int tailFrames = (int)Math.Floor(tailMs / 1000.0 * 99.84);
                                 var editorF0 = SampleCurve(phrase, phrase.pitches, 0, 9.984, totalFrames, headFrames, tailFrames, x => MusicMath.ToneToFreq(x * 0.01));
+                                KeepUnvoiced(f0, editorF0);
+                                KeepPredictedInBreaths(f0, editorF0, monoTimingPath, 9.984);
                                 SaveFile(editorf0Path, editorF0);
                                 // F0の編集とメルスペクトグラムの生成はセット
                                 ArgParam = $"\"{fullScorePath}\" \"{monoTimingPath}\" \"{editorf0Path}\" \"{melspecPath}\" \"{wavPath}\" \"{modelDir}\" --skip-timing --skip-f0 --skip-wav -k {toneShift} -m -t";
@@ -365,7 +371,8 @@ namespace OpenUtau.Core.Neutrino {
                             //メルスペクトグラムの編集
                             string synthMelspecPath = EditMelspec(phrase, melspecPath, editorMelspecPath);
                             if (phrase.phones[0].direct) {
-                                ArgParam = $"\"{fullScorePath}\" \"{monoTimingPath}\" \"{f0Path}\" \"{synthMelspecPath}\" \"{wavPath}\" \"{modelDir}\" --skip-timing --skip-f0 --skip-melspec -k {toneShift} -m -t";
+                                string directF0 = DirectF0(phrase, f0Path, editorf0Path, monoTimingPath, headMs, tailMs);
+                                ArgParam = $"\"{fullScorePath}\" \"{monoTimingPath}\" \"{directF0}\" \"{synthMelspecPath}\" \"{wavPath}\" \"{modelDir}\" --skip-timing --skip-f0 --skip-melspec -k {toneShift} -m -t";
                             } else {
                                 ArgParam = $"\"{fullScorePath}\" \"{monoTimingPath}\" \"{editorf0Path}\" \"{synthMelspecPath}\" \"{wavPath}\" \"{modelDir}\" --skip-timing --skip-f0 --skip-melspec -k {toneShift} -m -t";
                             }
@@ -488,6 +495,57 @@ namespace OpenUtau.Core.Neutrino {
                 },
             };
             return result.ToArray();
+        }
+
+                /// <summary>
+        /// 息継ぎ (br)・休符 (pau/sil) の音素区間は、編集した音程で上書きせず NEUTRINO の予測値を使う。
+        /// NEUTRINO は息継ぎで低い F0 (約 90Hz) を予測し、それが息として鳴らす合図になっている。
+        /// 画面の音程 (前の音の高さ) で上書きすると、息継ぎが高い声のうなりになる。
+        /// </summary>
+        static void KeepPredictedInBreaths(double[] predicted, double[] edited, string monoTimingPath, double frameMs) {
+            if (!File.Exists(monoTimingPath)) return;
+            int n = Math.Min(predicted.Length, edited.Length);
+            foreach (var line in File.ReadAllLines(monoTimingPath)) {
+                var p = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (p.Length < 3 || !(p[2] == "br" || p[2] == "pau" || p[2] == "sil")) continue;
+                int a = (int)Math.Floor(long.Parse(p[0]) / 1e4 / frameMs);
+                int b = (int)Math.Ceiling(long.Parse(p[1]) / 1e4 / frameMs);
+                for (int i = Math.Max(0, a); i < Math.Min(n, b); i++) edited[i] = predicted[i];
+            }
+        }
+
+        /// <summary>
+        /// NEUTRINO が無声 (F0=0) と予測したフレーム (息継ぎ・無声子音・休符) は、編集した音程で
+        /// 上書きせず 0 のまま残す。上書きすると NSF が息や子音を有声で鳴らし、うなりが混ざる。
+        /// </summary>
+        /// <summary>
+        /// direct: NEUTRINO が予測した F0 をそのまま使い、音符のビブラートと PITD の分 (phrase.pitchDeviation) だけを
+        /// 有声のコマへ足す。足す物が無ければ予測の F0 のファイルをそのまま返す (従来の direct と同じ音)。
+        /// 息継ぎ・休符は予測のまま。
+        /// </summary>
+        string DirectF0(RenderPhrase phrase, string f0Path, string editorf0Path, string monoTimingPath, double headMs, double tailMs) {
+            if (phrase.pitchDeviation == null || phrase.pitchDeviation.All(x => x == 0)) {
+                return f0Path;
+            }
+            double[] f0 = LoadFile(f0Path);
+            int totalFrames = f0.Length;
+            int headFrames = (int)Math.Ceiling(headMs / 1000.0 * 99.84);
+            int tailFrames = (int)Math.Floor(tailMs / 1000.0 * 99.84);
+            double[] cents = SampleCurve(phrase, phrase.pitchDeviation, 0, 9.984, totalFrames, headFrames, tailFrames, x => x);
+            double[] edited = new double[totalFrames];
+            for (int i = 0; i < totalFrames; i++) {
+                edited[i] = f0[i] > 0 ? f0[i] * Math.Pow(2, cents[i] / 1200.0) : f0[i];
+            }
+            KeepPredictedInBreaths(f0, edited, monoTimingPath, 9.984);
+            SaveFile(editorf0Path, edited);
+            return editorf0Path;
+        }
+
+        static void KeepUnvoiced(double[] predicted, double[] edited) {
+            int n = Math.Min(predicted.Length, edited.Length);
+            for (int i = 0; i < n; i++) {
+                if (predicted[i] <= 0) edited[i] = 0;
+            }
         }
 
         public override string ToString() => Renderers.NEUTRINO;
