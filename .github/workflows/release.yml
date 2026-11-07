@@ -1,4 +1,6 @@
 # 毎日、NEUTRINO対応PRのソースを確かめ、前回の配布から変わっていれば Mac / Windows 版をビルドして Release を出す。
+# packaging/extra-commits.txt のコミットを足してビルドする。このリストを変えた時も作り直す。
+# アプリの版は、元のソースが取り込んでいる本家 OpenUtau の版 (例: 0.1.570.3) にする。
 # PR が本家にマージされていたら、ビルドせずに本家の Release ページへのリンクを出し、この workflow を無効にして止まる。
 name: NEUTRINO release
 
@@ -36,6 +38,7 @@ jobs:
       action: ${{ steps.r.outputs.action }}
       sha: ${{ steps.r.outputs.sha }}
       date: ${{ steps.r.outputs.date }}
+      version: ${{ steps.r.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - id: r
@@ -51,9 +54,17 @@ jobs:
           sha=$(gh api "repos/$SRC_REPO/commits/$SRC_REF" --jq .sha)
           date=$(gh api "repos/$SRC_REPO/commits/$sha" --jq '.commit.committer.date[:10]')
           last=$(jq -r '.source_sha // ""' state/last-build.json)
+          extras=$(awk '!/^[[:space:]]*(#|$)/ {print $1}' packaging/extra-commits.txt | sort | paste -sd, -)
+          last_extras=$(jq -r '(.extra_commits // []) | sort | join(",")' state/last-build.json)
           echo "sha=$sha" >> "$GITHUB_OUTPUT"; echo "date=$date" >> "$GITHUB_OUTPUT"
-          if [ "$sha" != "$last" ] || [ "$FORCE" = "true" ]; then
+          if [ "$sha" != "$last" ] || [ "$extras" != "$last_extras" ] || [ "$FORCE" = "true" ]; then
             echo "action=build" >> "$GITHUB_OUTPUT"
+            version=$(packaging/base-version.sh "$SRC_REPO" "$sha" || true)
+            if [ -z "$version" ]; then
+              version="0.0.${GITHUB_RUN_NUMBER}"
+              echo "::warning::本家のどの版をもとにしているか分からないので、版を ${version} にします"
+            fi
+            echo "version=$version" >> "$GITHUB_OUTPUT"
           else
             echo "action=skip" >> "$GITHUB_OUTPUT"
             echo "source unchanged: $sha"
@@ -101,6 +112,9 @@ jobs:
         with: { repository: "${{ env.SRC_REPO }}", ref: "${{ needs.check.outputs.sha }}", path: src }
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: "10.0.x" }
+      - name: Add extra commits
+        working-directory: src
+        run: bash ../kit/packaging/apply-extra-commits.sh ../kit/packaging/extra-commits.txt
       - name: Check NEUTRINO support and redirect updater
         working-directory: src
         run: |
@@ -111,10 +125,14 @@ jobs:
           ! grep -qF "$UPDATER_URL" "$UPDATER_FILE"
       - name: Build
         working-directory: src
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
         run: |
           set -euo pipefail
-          dotnet publish OpenUtau -c Release -r osx-arm64 --self-contained true -o bin/osx-arm64/ -p:Version=0.0.${{ github.run_number }}
-          dotnet msbuild OpenUtau -t:BundleApp -p:Configuration=Release -p:RuntimeIdentifier=osx-arm64 -p:UseAppHost=true -p:SelfContained=true -p:OutputPath=../bin/osx-arm64/ -p:Version=0.0.${{ github.run_number }}
+          v="-p:Version=$VERSION -p:CFBundleVersion=$VERSION -p:CFBundleShortVersionString=$VERSION"
+          dotnet publish OpenUtau -c Release -r osx-arm64 --self-contained true -o bin/osx-arm64/ $v
+          dotnet msbuild OpenUtau -t:BundleApp -p:Configuration=Release -p:RuntimeIdentifier=osx-arm64 -p:UseAppHost=true -p:SelfContained=true -p:OutputPath=../bin/osx-arm64/ $v
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" bin/osx-arm64/publish/OpenUtau.app/Contents/Info.plist | grep -qxF "$VERSION"
           cp OpenUtau/Assets/OpenUtau.icns bin/osx-arm64/publish/OpenUtau.app/Contents/Resources/ || true
           codesign --force --deep -s - bin/osx-arm64/publish/OpenUtau.app
           codesign --verify --deep --strict bin/osx-arm64/publish/OpenUtau.app
@@ -124,6 +142,7 @@ jobs:
           SOURCE_REF: ${{ env.SRC_REF }}
           SOURCE_SHA: ${{ needs.check.outputs.sha }}
           SOURCE_DATE: ${{ needs.check.outputs.date }}
+          BASE_VERSION: ${{ needs.check.outputs.version }}
         run: |
           set -euo pipefail
           p=pkg/OpenUtau-NEUTRINO; mkdir -p "$p"
@@ -164,6 +183,9 @@ jobs:
         with: { repository: "${{ env.SRC_REPO }}", ref: "${{ needs.check.outputs.sha }}", path: src }
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: "10.0.x" }
+      - name: Add extra commits
+        working-directory: src
+        run: bash ../kit/packaging/apply-extra-commits.sh ../kit/packaging/extra-commits.txt
       - name: Check NEUTRINO support and redirect updater
         working-directory: src
         run: |
@@ -174,9 +196,11 @@ jobs:
           ! grep -qF "$UPDATER_URL" "$UPDATER_FILE"
       - name: Build
         working-directory: src
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
         run: |
           set -euo pipefail
-          dotnet publish OpenUtau -c Release -r win-x64 --self-contained true -o ../pkg/OpenUtau-NEUTRINO/ -p:Version=0.0.${{ github.run_number }}
+          dotnet publish OpenUtau -c Release -r win-x64 --self-contained true -o ../pkg/OpenUtau-NEUTRINO/ -p:Version=$VERSION
           # 本家 CI と同じく DirectML を同梱する
           curl -fsSL https://www.nuget.org/api/v2/package/Microsoft.AI.DirectML/1.15.4 -o dml.zip
           7z x -y -odml dml.zip > /dev/null
@@ -187,6 +211,7 @@ jobs:
           SOURCE_REF: ${{ env.SRC_REF }}
           SOURCE_SHA: ${{ needs.check.outputs.sha }}
           SOURCE_DATE: ${{ needs.check.outputs.date }}
+          BASE_VERSION: ${{ needs.check.outputs.version }}
         run: |
           set -euo pipefail
           p=pkg/OpenUtau-NEUTRINO
@@ -236,12 +261,13 @@ jobs:
           SOURCE_REF: ${{ env.SRC_REF }}
           SOURCE_SHA: ${{ needs.check.outputs.sha }}
           SOURCE_DATE: ${{ needs.check.outputs.date }}
+          BASE_VERSION: ${{ needs.check.outputs.version }}
         run: |
           set -euo pipefail
           short=${SOURCE_SHA:0:8}
           # Release は元のソースのコミットごとに1つ。同じソースで作り直した時は、増やさずに中身を差し替える。
           tag="neutrino-${short}"
-          title="OpenUtau NEUTRINO対応版 ${SOURCE_DATE} (${short})"
+          title="OpenUtau NEUTRINO対応版 v${BASE_VERSION} ${SOURCE_DATE} (${short})"
           packaging/compose.sh release > notes.md
           { echo; echo "## ファイル"; echo; echo '```'; (cd dist && sha256sum *); echo '```'; } >> notes.md
           if gh release view "$tag" > /dev/null 2>&1; then
@@ -250,8 +276,10 @@ jobs:
           else
             gh release create "$tag" dist/* --target "$GITHUB_REF_NAME" --latest --title "$title" --notes-file notes.md
           fi
+          extras=$(awk '!/^[[:space:]]*(#|$)/ {print $1}' packaging/extra-commits.txt | jq -R . | jq -s .)
           jq -n --arg sha "$SOURCE_SHA" --arg tag "$tag" --arg repo "$SOURCE_REPO" --arg ref "$SOURCE_REF" \
-            '{source_repo:$repo, source_ref:$ref, source_sha:$sha, release_tag:$tag}' > state/last-build.json
+            --arg version "$BASE_VERSION" --argjson extras "$extras" \
+            '{source_repo:$repo, source_ref:$ref, source_sha:$sha, extra_commits:$extras, version:$version, release_tag:$tag}' > state/last-build.json
           packaging/compose.sh readme > README.md
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add state/last-build.json README.md
