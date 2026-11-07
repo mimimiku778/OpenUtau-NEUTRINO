@@ -7,6 +7,12 @@ name: NEUTRINO release
 on:
   schedule:
     - cron: "0 21 * * *"   # 毎日 06:00 JST
+  # 足すコミットの一覧かこの workflow を変えたら、朝を待たずに確かめる (変わっていなければ何もしない)
+  push:
+    branches: [release-kit]
+    paths:
+      - packaging/extra-commits.txt
+      - .github/workflows/release.yml
   workflow_dispatch:
     inputs:
       force:
