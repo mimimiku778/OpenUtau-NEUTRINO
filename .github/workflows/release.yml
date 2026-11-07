@@ -1,6 +1,9 @@
 # 毎日、NEUTRINO対応PRのソースを確かめ、前回の配布から変わっていれば Mac / Windows 版をビルドして Release を出す。
-# packaging/extra-commits.txt のコミットを足してビルドする。このリストを変えた時も作り直す。
-# アプリの版は、元のソースが取り込んでいる本家 OpenUtau の版 (例: 0.1.570.3) にする。
+# 2種類を作る。どちらも同じ Release に入れる (Release は元のソースのコミットごとに1つ)。
+#   固定版 (fixed):  PR のソース + packaging/extra-commits.txt。OpenUtau 本体は PR が取り込んだ版のまま。
+#   最新版 (latest): PR のソースに本家 OpenUtau の master を混ぜ + packaging/extra-commits-latest.txt。
+#                    本家の master が動いた時も作り直す。作れなかった時は固定版だけを出す。
+# アプリの版は、それぞれが取り込んでいる本家 OpenUtau の版 (例: 0.1.570.3) にする。
 # PR が本家にマージされていたら、ビルドせずに本家の Release ページへのリンクを出し、この workflow を無効にして止まる。
 name: NEUTRINO release
 
@@ -12,6 +15,7 @@ on:
     branches: [release-kit]
     paths:
       - packaging/extra-commits.txt
+      - packaging/extra-commits-latest.txt
       - .github/workflows/release.yml
   workflow_dispatch:
     inputs:
@@ -33,6 +37,8 @@ env:
   PR_NUMBER: "2136"
   SRC_REPO: rokujyushi/OpenUtau
   SRC_REF: neutrino
+  UPSTREAM_REPO: openutau/OpenUtau
+  UPSTREAM_REF: master
   UPSTREAM_RELEASES: https://github.com/openutau/OpenUtau/releases
   UPDATER_FILE: OpenUtau/ViewModels/UpdaterViewModel.cs
   UPDATER_URL: https://api.github.com/repos/stakira/OpenUtau/releases?per_page=100
@@ -42,9 +48,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       action: ${{ steps.r.outputs.action }}
+      flavors: ${{ steps.r.outputs.flavors }}
       sha: ${{ steps.r.outputs.sha }}
       date: ${{ steps.r.outputs.date }}
       version: ${{ steps.r.outputs.version }}
+      upstream_sha: ${{ steps.r.outputs.upstream_sha }}
+      upstream_date: ${{ steps.r.outputs.upstream_date }}
+      latest_version: ${{ steps.r.outputs.latest_version }}
     steps:
       - uses: actions/checkout@v4
       - id: r
@@ -59,22 +69,42 @@ jobs:
           fi
           sha=$(gh api "repos/$SRC_REPO/commits/$SRC_REF" --jq .sha)
           date=$(gh api "repos/$SRC_REPO/commits/$sha" --jq '.commit.committer.date[:10]')
-          last=$(jq -r '.source_sha // ""' state/last-build.json)
-          extras=$(awk '!/^[[:space:]]*(#|$)/ {print $1}' packaging/extra-commits.txt | sort | paste -sd, -)
-          last_extras=$(jq -r '(.extra_commits // []) | sort | join(",")' state/last-build.json)
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"; echo "date=$date" >> "$GITHUB_OUTPUT"
-          if [ "$sha" != "$last" ] || [ "$extras" != "$last_extras" ] || [ "$FORCE" = "true" ]; then
-            echo "action=build" >> "$GITHUB_OUTPUT"
-            version=$(packaging/base-version.sh "$SRC_REPO" "$sha" || true)
-            if [ -z "$version" ]; then
-              version="0.0.${GITHUB_RUN_NUMBER}"
-              echo "::warning::本家のどの版をもとにしているか分からないので、版を ${version} にします"
-            fi
-            echo "version=$version" >> "$GITHUB_OUTPUT"
-          else
-            echo "action=skip" >> "$GITHUB_OUTPUT"
-            echo "source unchanged: $sha"
+          up=$(gh api "repos/$UPSTREAM_REPO/commits/$UPSTREAM_REF" --jq .sha)
+          up_date=$(gh api "repos/$UPSTREAM_REPO/commits/$up" --jq '.commit.committer.date[:10]')
+          { echo "sha=$sha"; echo "date=$date"; echo "upstream_sha=$up"; echo "upstream_date=$up_date"; } >> "$GITHUB_OUTPUT"
+          st=state/last-build.json
+          list() { awk '!/^[[:space:]]*(#|$)/ {print $1}' "$1" | sort | paste -sd, -; }
+          was() { jq -r "$1" "$st"; }
+          flavors=()
+          # 固定版: PR のソースか、足すコミットの一覧が変わった時
+          if [ "$sha" != "$(was '.source_sha // ""')" ] \
+            || [ "$(list packaging/extra-commits.txt)" != "$(was '(.extra_commits // []) | sort | join(",")')" ] \
+            || [ "$FORCE" = "true" ]; then
+            flavors+=(fixed)
           fi
+          # 最新版: それに加えて、本家の master が動いた時も
+          if [ "$sha" != "$(was '.latest.source_sha // ""')" ] || [ "$up" != "$(was '.latest.upstream_sha // ""')" ] \
+            || [ "$(list packaging/extra-commits-latest.txt)" != "$(was '(.latest.extra_commits // []) | sort | join(",")')" ] \
+            || [ "$FORCE" = "true" ]; then
+            flavors+=(latest)
+          fi
+          if [ ${#flavors[@]} -eq 0 ]; then
+            echo "action=skip" >> "$GITHUB_OUTPUT"
+            echo "unchanged: $sha / upstream $up"
+            exit 0
+          fi
+          echo "action=build" >> "$GITHUB_OUTPUT"
+          echo "flavors=$(printf '%s\n' "${flavors[@]}" | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+          ver() {
+            local v; v=$(packaging/base-version.sh "$1" "$2" || true)
+            if [ -z "$v" ]; then
+              v="0.0.${GITHUB_RUN_NUMBER}"
+              echo "::warning::$1 の $2 が本家のどの版か分からないので、版を ${v} にします" >&2
+            fi
+            echo "$v"
+          }
+          echo "version=$(ver "$SRC_REPO" "$sha")" >> "$GITHUB_OUTPUT"
+          echo "latest_version=$(ver "$UPSTREAM_REPO" "$up")" >> "$GITHUB_OUTPUT"
       # 60日間 repo に動きが無いと GitHub が定期実行を止めるので、ソースが動かない時も月1回だけ記録を残す。
       - if: steps.r.outputs.action == 'skip'
         run: |
@@ -110,17 +140,47 @@ jobs:
   mac:
     needs: check
     if: needs.check.outputs.action == 'build'
+    name: mac (${{ matrix.flavor }})
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: ${{ fromJSON(needs.check.outputs.flavors) }}
     runs-on: macos-15
+    env:
+      FLAVOR: ${{ matrix.flavor }}
+      SUFFIX: ${{ matrix.flavor == 'latest' && '-latest' || '' }}
+      EXTRA: ${{ matrix.flavor == 'latest' && 'extra-commits-latest.txt' || 'extra-commits.txt' }}
+      VERSION: ${{ matrix.flavor == 'latest' && needs.check.outputs.latest_version || needs.check.outputs.version }}
+      SOURCE_REPO: rokujyushi/OpenUtau
+      SOURCE_REF: neutrino
+      SOURCE_SHA: ${{ needs.check.outputs.sha }}
+      SOURCE_DATE: ${{ needs.check.outputs.date }}
+      BASE_VERSION: ${{ needs.check.outputs.version }}
+      LATEST_VERSION: ${{ needs.check.outputs.latest_version }}
+      LATEST_UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
+      LATEST_UPSTREAM_DATE: ${{ needs.check.outputs.upstream_date }}
     steps:
       - uses: actions/checkout@v4
         with: { path: kit }
       - uses: actions/checkout@v4
-        with: { repository: "${{ env.SRC_REPO }}", ref: "${{ needs.check.outputs.sha }}", path: src }
+        with:
+          repository: "${{ env.SRC_REPO }}"
+          ref: "${{ needs.check.outputs.sha }}"
+          path: src
+          # 最新版は本家と混ぜるので、共通の祖先まで辿れる履歴が要る
+          fetch-depth: ${{ matrix.flavor == 'latest' && '0' || '1' }}
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: "10.0.x" }
+      - name: Merge the latest OpenUtau
+        if: matrix.flavor == 'latest'
+        working-directory: src
+        run: |
+          set -euo pipefail
+          git fetch -q --no-tags "https://github.com/$UPSTREAM_REPO" "${{ needs.check.outputs.upstream_sha }}"
+          git -c user.name=build -c user.email=build@localhost merge -q --no-edit FETCH_HEAD
       - name: Add extra commits
         working-directory: src
-        run: bash ../kit/packaging/apply-extra-commits.sh ../kit/packaging/extra-commits.txt
+        run: bash ../kit/packaging/apply-extra-commits.sh "../kit/packaging/$EXTRA"
       - name: Check NEUTRINO support and redirect updater
         working-directory: src
         run: |
@@ -131,8 +191,6 @@ jobs:
           ! grep -qF "$UPDATER_URL" "$UPDATER_FILE"
       - name: Build
         working-directory: src
-        env:
-          VERSION: ${{ needs.check.outputs.version }}
         run: |
           set -euo pipefail
           v="-p:Version=$VERSION -p:CFBundleVersion=$VERSION -p:CFBundleShortVersionString=$VERSION"
@@ -143,12 +201,6 @@ jobs:
           codesign --force --deep -s - bin/osx-arm64/publish/OpenUtau.app
           codesign --verify --deep --strict bin/osx-arm64/publish/OpenUtau.app
       - name: Package dmg
-        env:
-          SOURCE_REPO: ${{ env.SRC_REPO }}
-          SOURCE_REF: ${{ env.SRC_REF }}
-          SOURCE_SHA: ${{ needs.check.outputs.sha }}
-          SOURCE_DATE: ${{ needs.check.outputs.date }}
-          BASE_VERSION: ${{ needs.check.outputs.version }}
         run: |
           set -euo pipefail
           p=pkg/OpenUtau-NEUTRINO; mkdir -p "$p"
@@ -170,28 +222,57 @@ jobs:
           HOME=$fake /bin/bash "$p/NEUTRINOの登録を解除.command"
           test ! -e "$fake/Library/OpenUtau/Dependencies/NEUTRINO_v3" && test ! -e "$fake/Library/OpenUtau/Singers/NEUTRINO_ADD"
           [ "$before" = "$(find "$ne" | sort | shasum)" ]   # 解除しても NEUTRINO は1つも消えない
-          hdiutil create -volname OpenUtau-NEUTRINO -srcfolder "$p" -format UDZO -ov OpenUtau-NEUTRINO-macos-arm64.dmg
-          codesign -fs - OpenUtau-NEUTRINO-macos-arm64.dmg
+          hdiutil create -volname OpenUtau-NEUTRINO -srcfolder "$p" -format UDZO -ov "OpenUtau-NEUTRINO${SUFFIX}-macos-arm64.dmg"
+          codesign -fs - "OpenUtau-NEUTRINO${SUFFIX}-macos-arm64.dmg"
       - uses: actions/upload-artifact@v4
-        with: { name: mac, path: OpenUtau-NEUTRINO-macos-arm64.dmg, if-no-files-found: error }
+        with: { name: "mac-${{ matrix.flavor }}", path: "OpenUtau-NEUTRINO${{ env.SUFFIX }}-macos-arm64.dmg", if-no-files-found: error }
 
   windows:
     needs: check
     if: needs.check.outputs.action == 'build'
+    name: windows (${{ matrix.flavor }})
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: ${{ fromJSON(needs.check.outputs.flavors) }}
     runs-on: windows-latest
     defaults:
       run:
         shell: bash
+    env:
+      FLAVOR: ${{ matrix.flavor }}
+      SUFFIX: ${{ matrix.flavor == 'latest' && '-latest' || '' }}
+      EXTRA: ${{ matrix.flavor == 'latest' && 'extra-commits-latest.txt' || 'extra-commits.txt' }}
+      VERSION: ${{ matrix.flavor == 'latest' && needs.check.outputs.latest_version || needs.check.outputs.version }}
+      SOURCE_REPO: rokujyushi/OpenUtau
+      SOURCE_REF: neutrino
+      SOURCE_SHA: ${{ needs.check.outputs.sha }}
+      SOURCE_DATE: ${{ needs.check.outputs.date }}
+      BASE_VERSION: ${{ needs.check.outputs.version }}
+      LATEST_VERSION: ${{ needs.check.outputs.latest_version }}
+      LATEST_UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
+      LATEST_UPSTREAM_DATE: ${{ needs.check.outputs.upstream_date }}
     steps:
       - uses: actions/checkout@v4
         with: { path: kit }
       - uses: actions/checkout@v4
-        with: { repository: "${{ env.SRC_REPO }}", ref: "${{ needs.check.outputs.sha }}", path: src }
+        with:
+          repository: "${{ env.SRC_REPO }}"
+          ref: "${{ needs.check.outputs.sha }}"
+          path: src
+          fetch-depth: ${{ matrix.flavor == 'latest' && '0' || '1' }}
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: "10.0.x" }
+      - name: Merge the latest OpenUtau
+        if: matrix.flavor == 'latest'
+        working-directory: src
+        run: |
+          set -euo pipefail
+          git fetch -q --no-tags "https://github.com/$UPSTREAM_REPO" "${{ needs.check.outputs.upstream_sha }}"
+          git -c user.name=build -c user.email=build@localhost merge -q --no-edit FETCH_HEAD
       - name: Add extra commits
         working-directory: src
-        run: bash ../kit/packaging/apply-extra-commits.sh ../kit/packaging/extra-commits.txt
+        run: bash ../kit/packaging/apply-extra-commits.sh "../kit/packaging/$EXTRA"
       - name: Check NEUTRINO support and redirect updater
         working-directory: src
         run: |
@@ -202,8 +283,6 @@ jobs:
           ! grep -qF "$UPDATER_URL" "$UPDATER_FILE"
       - name: Build
         working-directory: src
-        env:
-          VERSION: ${{ needs.check.outputs.version }}
         run: |
           set -euo pipefail
           dotnet publish OpenUtau -c Release -r win-x64 --self-contained true -o ../pkg/OpenUtau-NEUTRINO/ -p:Version=$VERSION
@@ -212,12 +291,6 @@ jobs:
           7z x -y -odml dml.zip > /dev/null
           cp dml/bin/x64-win/DirectML.dll ../pkg/OpenUtau-NEUTRINO/
       - name: Package zip
-        env:
-          SOURCE_REPO: ${{ env.SRC_REPO }}
-          SOURCE_REF: ${{ env.SRC_REF }}
-          SOURCE_SHA: ${{ needs.check.outputs.sha }}
-          SOURCE_DATE: ${{ needs.check.outputs.date }}
-          BASE_VERSION: ${{ needs.check.outputs.version }}
         run: |
           set -euo pipefail
           p=pkg/OpenUtau-NEUTRINO
@@ -250,12 +323,14 @@ jobs:
           if ($before -ne ((Get-ChildItem -Recurse $ne | ForEach-Object FullName) -join "|")) { Write-Host "NEUTRINO was modified"; exit 1 }
           Remove-Item -Recurse -Force $t
       - name: Zip
-        run: cd pkg && 7z a -tzip ../OpenUtau-NEUTRINO-win-x64.zip OpenUtau-NEUTRINO
+        run: cd pkg && 7z a -tzip "../OpenUtau-NEUTRINO${SUFFIX}-win-x64.zip" OpenUtau-NEUTRINO
       - uses: actions/upload-artifact@v4
-        with: { name: windows, path: OpenUtau-NEUTRINO-win-x64.zip, if-no-files-found: error }
+        with: { name: "windows-${{ matrix.flavor }}", path: "OpenUtau-NEUTRINO${{ env.SUFFIX }}-win-x64.zip", if-no-files-found: error }
 
   release:
     needs: [check, mac, windows]
+    # どちらかの版が作れなくても、作れた方は出す
+    if: always() && needs.check.outputs.action == 'build'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -263,33 +338,82 @@ jobs:
         with: { path: dist, merge-multiple: true }
       - env:
           GH_TOKEN: ${{ github.token }}
+          FLAVORS: ${{ needs.check.outputs.flavors }}
           SOURCE_REPO: ${{ env.SRC_REPO }}
           SOURCE_REF: ${{ env.SRC_REF }}
           SOURCE_SHA: ${{ needs.check.outputs.sha }}
           SOURCE_DATE: ${{ needs.check.outputs.date }}
-          BASE_VERSION: ${{ needs.check.outputs.version }}
+          NEW_VERSION: ${{ needs.check.outputs.version }}
+          NEW_LATEST_VERSION: ${{ needs.check.outputs.latest_version }}
+          NEW_UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
+          NEW_UPSTREAM_DATE: ${{ needs.check.outputs.upstream_date }}
         run: |
           set -euo pipefail
           short=${SOURCE_SHA:0:8}
           # Release は元のソースのコミットごとに1つ。同じソースで作り直した時は、増やさずに中身を差し替える。
           tag="neutrino-${short}"
-          title="OpenUtau NEUTRINO対応版 v${BASE_VERSION} ${SOURCE_DATE} (${short})"
-          packaging/compose.sh release > notes.md
-          { echo; echo "## ファイル"; echo; echo '```'; (cd dist && sha256sum *); echo '```'; } >> notes.md
-          if gh release view "$tag" > /dev/null 2>&1; then
-            gh release upload "$tag" dist/* --clobber
-            gh release edit "$tag" --title "$title" --notes-file notes.md --latest
-          else
-            gh release create "$tag" dist/* --target "$GITHUB_REF_NAME" --latest --title "$title" --notes-file notes.md
+          st=state/last-build.json
+          mkdir -p dist
+          wanted() { jq -e --arg f "$1" 'index($f) != null' <<<"$FLAVORS" > /dev/null; }
+          # Mac と Windows の両方が揃った版だけを出す
+          built() { [ -f "dist/OpenUtau-NEUTRINO$1-macos-arm64.dmg" ] && [ -f "dist/OpenUtau-NEUTRINO$1-win-x64.zip" ]; }
+          files=(); failed=()
+          fixed_ok=false; latest_ok=false
+          if built ""; then fixed_ok=true; files+=(dist/OpenUtau-NEUTRINO-macos-arm64.dmg dist/OpenUtau-NEUTRINO-win-x64.zip)
+          elif wanted fixed; then failed+=("固定版"); fi
+          if built "-latest"; then latest_ok=true; files+=(dist/OpenUtau-NEUTRINO-latest-macos-arm64.dmg dist/OpenUtau-NEUTRINO-latest-win-x64.zip)
+          elif wanted latest; then failed+=("最新版"); fi
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::どちらの版も作れませんでした"; exit 1
           fi
-          extras=$(awk '!/^[[:space:]]*(#|$)/ {print $1}' packaging/extra-commits.txt | jq -R . | jq -s .)
-          jq -n --arg sha "$SOURCE_SHA" --arg tag "$tag" --arg repo "$SOURCE_REPO" --arg ref "$SOURCE_REF" \
-            --arg version "$BASE_VERSION" --argjson extras "$extras" \
-            '{source_repo:$repo, source_ref:$ref, source_sha:$sha, extra_commits:$extras, version:$version, release_tag:$tag}' > state/last-build.json
+          exists=false; gh release view "$tag" > /dev/null 2>&1 && exists=true
+          # 今回作らなかった版は、同じ Release に前に出した物が残っていれば、その記録を使う
+          export BASE_VERSION="" LATEST_VERSION="" LATEST_UPSTREAM_SHA="" LATEST_UPSTREAM_DATE=""
+          if $fixed_ok; then BASE_VERSION=$NEW_VERSION
+          elif $exists && [ "$(jq -r '.release_tag // ""' $st)" = "$tag" ]; then BASE_VERSION=$(jq -r '.version // ""' $st); fi
+          if $latest_ok; then
+            LATEST_VERSION=$NEW_LATEST_VERSION; LATEST_UPSTREAM_SHA=$NEW_UPSTREAM_SHA; LATEST_UPSTREAM_DATE=$NEW_UPSTREAM_DATE
+          elif $exists && [ "$(jq -r '.latest.release_tag // ""' $st)" = "$tag" ]; then
+            LATEST_VERSION=$(jq -r '.latest.version // ""' $st)
+            LATEST_UPSTREAM_SHA=$(jq -r '.latest.upstream_sha // ""' $st)
+            LATEST_UPSTREAM_DATE=$(jq -r '.latest.upstream_date // ""' $st)
+          fi
+          title="OpenUtau NEUTRINO対応版 ${SOURCE_DATE} (${short})"
+          [ -z "$BASE_VERSION" ] || title+=" v${BASE_VERSION}"
+          [ -z "$LATEST_VERSION" ] || title+=" / 最新版 v${LATEST_VERSION}"
+          if $exists; then
+            gh release upload "$tag" "${files[@]}" --clobber
+          else
+            gh release create "$tag" "${files[@]}" --target "$GITHUB_REF_NAME" --latest --title "$title" --notes "準備中"
+          fi
+          packaging/compose.sh release > notes.md
+          { echo; echo "## ファイル"; echo; echo '```'
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq '.assets[] | "\(.digest // "" | sub("^sha256:"; ""))  \(.name)"' | sort -k2
+            echo '```'; } >> notes.md
+          gh release edit "$tag" --title "$title" --notes-file notes.md --latest
+          # 作れた版の記録だけを更新する
+          new=$(cat "$st")
+          if $fixed_ok; then
+            extras=$(awk '!/^[[:space:]]*(#|$)/ {print $1}' packaging/extra-commits.txt | jq -R . | jq -s .)
+            new=$(jq --arg sha "$SOURCE_SHA" --arg tag "$tag" --arg repo "$SOURCE_REPO" --arg ref "$SOURCE_REF" \
+              --arg version "$NEW_VERSION" --argjson extras "$extras" \
+              '.source_repo=$repo | .source_ref=$ref | .source_sha=$sha | .extra_commits=$extras | .version=$version | .release_tag=$tag' <<<"$new")
+          fi
+          if $latest_ok; then
+            extras=$(awk '!/^[[:space:]]*(#|$)/ {print $1}' packaging/extra-commits-latest.txt | jq -R . | jq -s .)
+            new=$(jq --arg sha "$SOURCE_SHA" --arg tag "$tag" --arg up "$NEW_UPSTREAM_SHA" --arg upd "$NEW_UPSTREAM_DATE" \
+              --arg uprepo "$UPSTREAM_REPO" --arg version "$NEW_LATEST_VERSION" --argjson extras "$extras" \
+              '.latest={source_sha:$sha, upstream_repo:$uprepo, upstream_sha:$up, upstream_date:$upd, extra_commits:$extras, version:$version, release_tag:$tag}' <<<"$new")
+          fi
+          printf '%s\n' "$new" > "$st"
           packaging/compose.sh readme > README.md
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add state/last-build.json README.md
+          git add "$st" README.md
           if ! git diff --cached --quiet; then
             git commit -m "chore: ${tag} を配布"
             git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "::error::作れなかった版があります: ${failed[*]}。前に出した物があれば、それを残しています"
+            exit 1
           fi
