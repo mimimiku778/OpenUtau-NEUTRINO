@@ -2,5 +2,12 @@
   "source_repo": "rokujyushi/OpenUtau",
   "source_ref": "neutrino",
   "source_sha": "203c44f5d1374697abfa69626a2b52a19627184b",
+  "extra_commits": [
+    "c5cb0f47243a012d20c79d73b58d354b9149d7af",
+    "7a637f201e12ad5840cef3371d6fe8fb8fb187e0",
+    "7ee7cbc8e951d3338f1fa45c88394b8cf8b32498",
+    "4e6c5f7c3e890da4d003b5d8f39653b74ef7789a"
+  ],
+  "version": "0.1.570.3",
   "release_tag": "neutrino-203c44f5"
 }
