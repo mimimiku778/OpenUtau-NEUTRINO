@@ -230,6 +230,12 @@ namespace OpenUtau.Core.Pipeline {
         /// </summary>
         public readonly IReadOnlyDictionary<string, float>? Values;
 
+        /// <summary>
+        /// How the singing style F0 of a direct phrase is shaped (tuning amount, smoothing, tail fall limit).
+        /// The phrase uses its first phoneme's values. Not a resampler flag, so the values keep their fractions.
+        /// </summary>
+        public readonly Neutrino.SingingStyleF0.Settings StyleF0;
+
         // Voicebank resources, stable per singer.
         public readonly UOto Oto;
         public readonly UOto Oto2;
@@ -309,6 +315,7 @@ namespace OpenUtau.Core.Pipeline {
                 }
                 Values = values;
             }
+            StyleF0 = Neutrino.SingingStyleF0.Read(phoneme, project, track);
 
             Oto = phoneme.oto;
             if (Oto != null && !string.IsNullOrEmpty(targetColor)) {
@@ -354,6 +361,7 @@ namespace OpenUtau.Core.Pipeline {
             Envelope = Array.Empty<Vector2>();
             VelRaw = 100;
             ModpRaw = 0;
+            StyleF0 = Neutrino.SingingStyleF0.Settings.Default;
             Oto = null;
             Oto2 = null;
         }

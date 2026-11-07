@@ -35,6 +35,9 @@ namespace OpenUtau.Core.Voicevox {
             Format.Ustx.SHFT,
             NeutrinoTeacher.ABBR,
             PhraseVoice.ABBR,
+            SingingStyleF0.TUNING,
+            SingingStyleF0.SMOOTH,
+            SingingStyleF0.TAIL_LIMIT,
             VOLC,
             SMOC,
             REPM,
@@ -87,9 +90,8 @@ namespace OpenUtau.Core.Voicevox {
                                     //vsParams.f0 = ToneShift(phrase, vsParams);
                                     vsParams.f0 = vsParams.f0.Select(f0 => f0 = f0 * Math.Pow(2, ((phrase.phones[0].toneShift * -1) / 12d))).ToList();
                                     if (TeacherOf(phrase) != null) {
-                                        // NEUTRINO の direct と同じく、先生の F0 に音符のビブラートと PITD の分だけを足す
-                                        var cents = VoicevoxUtils.SampleCurve(phrase, phrase.pitchDeviation, 0, frameMs, vvTotalFrames, vsParams.phonemes[0].frame_length, vsParams.phonemes[^1].frame_length, 0, x => x);
-                                        vsParams.f0 = vsParams.f0.Select((f, i) => f > 0 ? f * Math.Pow(2, cents[i] / 1200.0) : f).ToList();
+                                        // NEUTRINO の direct と同じく、歌い方の F0 に音符のビブラートと PITD の分だけを足す (句の頭の値で整える)
+                                        ShapeStyleF0(phrase, vsParams);
                                     }
                                 }
 
@@ -139,7 +141,7 @@ namespace OpenUtau.Core.Voicevox {
                                     Directory.CreateDirectory(dumpDir);
                                     int sf = VoicevoxUtils.ToFrame(VoicevoxUtils.GetSynthSpan(phrase).startMs);
                                     File.WriteAllText(Path.Join(dumpDir, $"{phrase.position:D8}.json"),
-                                        $"{{\"positionMs\":{phrase.positionMs},\"startFrame\":{sf},\"layoutMs\":{result.positionMs},\"speaker\":{speakerID},\"teacher\":\"{TeacherOf(phrase)?.Id}\",\"query\":{Json.Serialize(vsParams)}}}");
+                                        $"{{\"positionMs\":{phrase.positionMs},\"startFrame\":{sf},\"layoutMs\":{result.positionMs},\"speaker\":{speakerID},\"teacher\":\"{TeacherOf(phrase)?.Id}\",\"styleF0\":\"{phrase.styleF0}\",\"query\":{Json.Serialize(vsParams)}}}");
                                 }
                                 var queryurl = new VoicevoxURL() { method = "POST", path = "/frame_synthesis", query = new Dictionary<string, string> { { "speaker", speakerID.ToString() } }, body = Json.Serialize(vsParams), accept = "audio/wav" };
                                 var response = VoicevoxClient.Inst.SendRequest(queryurl);
@@ -263,9 +265,7 @@ namespace OpenUtau.Core.Voicevox {
             var vsParams = PhonemeToVoicevoxSynthParams(phrase);
             var t = NeutrinoRenderer.RenderTeacher(phrase, teacher);
             int n = vsParams.f0.Count;
-            int head = vsParams.phonemes[0].frame_length;
-            int startFrame = VoicevoxUtils.ToFrame(VoicevoxUtils.GetSynthSpan(phrase).startMs);
-            double frameMs = 1000.0 / VoicevoxUtils.fps;
+            var times = FrameTimesMs(phrase, vsParams);
             // 25 ms の RMS (中心窓) を累積和で引く
             int win = Math.Max(1, (int)(0.025 * t.sampleRate));
             var cum = new double[t.samples.Length + 1];
@@ -277,20 +277,10 @@ namespace OpenUtau.Core.Voicevox {
                 int b = Math.Clamp(a + win, 0, t.samples.Length);
                 return b > a ? Math.Sqrt((cum[b] - cum[a]) / win) : 0;
             }
-            double F0At(double pos) {
-                if (t.f0.Length == 0) return 0;
-                pos = Math.Clamp(pos, 0, t.f0.Length - 1);
-                int i0 = (int)Math.Floor(pos);
-                int i1 = Math.Min(i0 + 1, t.f0.Length - 1);
-                double w = pos - i0, a0 = t.f0[i0], a1 = t.f0[i1];
-                if (a0 > 0 && a1 > 0) return Math.Exp((1 - w) * Math.Log(a0) + w * Math.Log(a1));
-                double f = w < 0.5 ? a0 : a1;
-                return f > 0 ? f : 0;
-            }
             var rms = new double[n];
             for (int j = 0; j < n; j++) {
-                double ms = (startFrame + j - head + 0.5) * frameMs;
-                vsParams.f0[j] = F0At((ms - t.originMs) / NeutrinoRenderer.TeacherOutput.FrameMs);
+                double ms = times[j];
+                vsParams.f0[j] = SampleStyleF0(t.f0, (ms - t.originMs) / NeutrinoRenderer.TeacherOutput.FrameMs);
                 rms[j] = RmsAt((int)Math.Round((ms - t.originMs) / 1000.0 * t.sampleRate));
             }
             var vowelRms = new List<double>();
@@ -308,6 +298,66 @@ namespace OpenUtau.Core.Voicevox {
                 vsParams.volume[j] = median > 0 ? Math.Clamp(rms[j] / median * TeacherVowelVolume, 0, TeacherVolumeMax) : 0;
             }
             return vsParams;
+        }
+
+        /// <summary>コマ j の歌い方の F0・音量を引く時刻 (絶対 ms、コマの中央)。</summary>
+        static double[] FrameTimesMs(RenderPhrase phrase, VoicevoxSynthParams vsParams) {
+            int n = vsParams.f0.Count;
+            int head = vsParams.phonemes[0].frame_length;
+            int startFrame = VoicevoxUtils.ToFrame(VoicevoxUtils.GetSynthSpan(phrase).startMs);
+            double frameMs = 1000.0 / VoicevoxUtils.fps;
+            var times = new double[n];
+            for (int j = 0; j < n; j++) {
+                times[j] = (startFrame + j - head + 0.5) * frameMs;
+            }
+            return times;
+        }
+
+        /// <summary>歌い方の F0 (10 ms 刻み、0 = 無声) をコマ位置 pos で引く。隣り合う有声 2 点だけ対数補間。</summary>
+        static double SampleStyleF0(double[] f0, double pos) {
+            if (f0.Length == 0) return 0;
+            pos = Math.Clamp(pos, 0, f0.Length - 1);
+            int i0 = (int)Math.Floor(pos);
+            int i1 = Math.Min(i0 + 1, f0.Length - 1);
+            double w = pos - i0, a0 = f0[i0], a1 = f0[i1];
+            if (a0 > 0 && a1 > 0) return Math.Exp((1 - w) * Math.Log(a0) + w * Math.Log(a1));
+            double f = w < 0.5 ? a0 : a1;
+            return f > 0 ? f : 0;
+        }
+
+        /// <summary>
+        /// direct の句: 歌い方の F0 に音符のビブラート + PITD を足し、句の頭の値で整える (SingingStyleF0、既定なら今までの式のまま)。
+        /// 鳴らす F0 (Render) と画面の線 (StyleF0Line) の両方がここを通る。
+        /// </summary>
+        static void ShapeStyleF0(RenderPhrase phrase, VoicevoxSynthParams vsParams) {
+            int n = vsParams.f0.Count;
+            double frameMs = (1000d / VoicevoxUtils.fps);
+            var cents = VoicevoxUtils.SampleCurve(phrase, phrase.pitchDeviation, 0, frameMs, n, vsParams.phonemes[0].frame_length, vsParams.phonemes[^1].frame_length, 0, x => x);
+            var style = phrase.styleF0;
+            if (style == null || style.IsDefault) {
+                vsParams.f0 = vsParams.f0.Select((f, i) => f > 0 ? f * Math.Pow(2, cents[i] / 1200.0) : f).ToList();
+                return;
+            }
+            var f0 = vsParams.f0.ToArray();
+            var vowels = SingingStyleF0.VowelSpans(vsParams.phonemes.Select(p => (p.phoneme, p.frame_length)));
+            SingingStyleF0.Shape(f0, cents, style, VoicevoxUtils.fps, vowels);
+            vsParams.f0 = f0.ToList();
+        }
+
+        /// <summary>
+        /// 歌い方 (NEUTRINO) を選んだ direct の句で frame_synthesis へ送る F0 (Hz、コマごと)、各コマの時刻 (絶対 ms)、前後の休符のコマ。
+        /// 歌い方の描画済み F0 (styleF0、10 ms 刻み、コマ 0 = originMs) から Render と同じ手順で作る (画面の線用、描画はしない)。
+        /// </summary>
+        internal static (double[] f0, double[] timesMs, bool[] padding) StyleF0Line(RenderPhrase phrase, double[] styleF0, double originMs) {
+            var vsParams = PhonemeToVoicevoxSynthParams(phrase);
+            var times = FrameTimesMs(phrase, vsParams);
+            for (int j = 0; j < times.Length; j++) {
+                vsParams.f0[j] = SampleStyleF0(styleF0, (times[j] - originMs) / NeutrinoRenderer.TeacherOutput.FrameMs);
+            }
+            vsParams.f0 = vsParams.f0.Select(f0 => f0 = f0 * Math.Pow(2, ((phrase.phones[0].toneShift * -1) / 12d))).ToList();
+            ShapeStyleF0(phrase, vsParams);
+            var voiced = PaddingVoicedMask(vsParams.phonemes.Select(p => p.frame_length).ToList());
+            return (vsParams.f0.ToArray(), times, voiced.Select(v => !v).ToArray());
         }
 
         /// <summary>
@@ -399,7 +449,7 @@ namespace OpenUtau.Core.Voicevox {
             return phoneme == "br" || phoneme == "sil" ? "pau" : phoneme;
         }
 
-        private VoicevoxSynthParams PhonemeToVoicevoxSynthParams(RenderPhrase phrase) {
+        private static VoicevoxSynthParams PhonemeToVoicevoxSynthParams(RenderPhrase phrase) {
             VoicevoxSynthParams vsParams = new VoicevoxSynthParams();
             int headFrames = (int)Math.Round((VoicevoxUtils.headS * VoicevoxUtils.fps), MidpointRounding.AwayFromZero);
             int tailFrames = (int)Math.Round((VoicevoxUtils.tailS * VoicevoxUtils.fps), MidpointRounding.AwayFromZero);
@@ -451,6 +501,9 @@ namespace OpenUtau.Core.Voicevox {
             var result = new List<UExpressionDescriptor> {
                 NeutrinoTeacher.Descriptor(),
                 PhraseVoice.Descriptor(),
+                SingingStyleF0.Descriptors()[0],
+                SingingStyleF0.Descriptors()[1],
+                SingingStyleF0.Descriptors()[2],
                 //volumes
                 new UExpressionDescriptor{
                     name="input volume (curve)",
@@ -548,9 +601,10 @@ namespace OpenUtau.Core.Voicevox {
 
         /// <summary>
         /// Mixed into the cache key. Bump it when the same phrase is sent to the engine differently,
-        /// so renders made by the old code are not reused (2: lyrics such as "あっ[a cl]" and "づ" no longer become rests).
+        /// so renders made by the old code are not reused (2: lyrics such as "あっ[a cl]" and "づ" no longer become rests;
+        /// 3: the singing style F0 is shaped by the phrase's tuning amount, smoothing and tail fall limit).
         /// </summary>
-        const int CacheVersion = 2;
+        const int CacheVersion = 3;
 
         ulong HashPhraseGroups(RenderPhrase phrase) {
             using (var stream = new MemoryStream()) {
@@ -565,6 +619,9 @@ namespace OpenUtau.Core.Voicevox {
                         writer.Write(phone.tone);
                     }
                     writer.Write(phrase.phones[0].volume);
+                    if (phrase.styleF0 != null && !phrase.styleF0.IsDefault) {
+                        phrase.styleF0.Write(writer);
+                    }
                     return XXH64.DigestOf(stream.ToArray());
                 }
             }

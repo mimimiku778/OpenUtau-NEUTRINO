@@ -54,6 +54,9 @@ namespace OpenUtau.Core.Neutrino {
             SMOC,
             NeutrinoTeacher.ABBR,
             PhraseVoice.ABBR,
+            SingingStyleF0.TUNING,
+            SingingStyleF0.SMOOTH,
+            SingingStyleF0.TAIL_LIMIT,
         };
 
         static readonly object lockObj = new object();
@@ -509,6 +512,7 @@ namespace OpenUtau.Core.Neutrino {
                 NeutrinoTeacher.Descriptor(),
                 PhraseVoice.Descriptor(),
             };
+            result.AddRange(SingingStyleF0.Descriptors());
             return result.ToArray();
         }
 
@@ -539,21 +543,61 @@ namespace OpenUtau.Core.Neutrino {
         /// 息継ぎ・休符は予測のまま。
         /// </summary>
         string DirectF0(RenderPhrase phrase, string f0Path, string editorf0Path, string monoTimingPath, double headMs, double tailMs) {
-            if (phrase.pitchDeviation == null || phrase.pitchDeviation.All(x => x == 0)) {
+            bool styleDefault = phrase.styleF0 == null || phrase.styleF0.IsDefault;
+            if (styleDefault && (phrase.pitchDeviation == null || phrase.pitchDeviation.All(x => x == 0))) {
                 return f0Path;
             }
             double[] f0 = LoadFile(f0Path);
+            SaveFile(editorf0Path, SoundedDirectF0(phrase, f0, monoTimingPath, headMs, tailMs));
+            return editorf0Path;
+        }
+
+        /// <summary>
+        /// direct の句で鳴らす F0: 予測の F0 に音符のビブラート + PITD を足し、句の頭の値で整える (SingingStyleF0、既定なら足すだけ)。
+        /// 平滑は息継ぎ・休符のコマでつながりを切り (息継ぎの低い F0 を歌へ混ぜない)、語尾の上限は timing label の母音に掛ける。
+        /// 息継ぎ・休符は予測のまま。鳴らす F0 (DirectF0) と画面の線 (LoadDirectPitch) の両方がここを通る。
+        /// </summary>
+        double[] SoundedDirectF0(RenderPhrase phrase, double[] f0, string monoTimingPath, double headMs, double tailMs) {
             int totalFrames = f0.Length;
             int headFrames = (int)Math.Ceiling(headMs / 1000.0 * 99.84);
             int tailFrames = (int)Math.Floor(tailMs / 1000.0 * 99.84);
             double[] cents = SampleCurve(phrase, phrase.pitchDeviation, 0, 9.984, totalFrames, headFrames, tailFrames, x => x);
             double[] edited = new double[totalFrames];
-            for (int i = 0; i < totalFrames; i++) {
-                edited[i] = f0[i] > 0 ? f0[i] * Math.Pow(2, cents[i] / 1200.0) : f0[i];
+            if (phrase.styleF0 == null || phrase.styleF0.IsDefault) {
+                for (int i = 0; i < totalFrames; i++) {
+                    edited[i] = f0[i] > 0 ? f0[i] * Math.Pow(2, cents[i] / 1200.0) : f0[i];
+                }
+            } else {
+                Array.Copy(f0, edited, totalFrames);
+                var vowels = new List<(int, int)>();
+                var breaks = new bool[totalFrames];
+                ReadStyleSpans(monoTimingPath, 9.984, vowels, breaks);
+                SingingStyleF0.Shape(edited, cents, phrase.styleF0, 1000.0 / 9.984, vowels, breaks);
             }
             KeepPredictedInBreaths(f0, edited, monoTimingPath, 9.984);
-            SaveFile(editorf0Path, edited);
-            return editorf0Path;
+            return edited;
+        }
+
+        /// <summary>
+        /// timing label から、母音のコマの範囲と、息継ぎ・休符 (br・pau・sil) のコマ (KeepPredictedInBreaths と同じ当て方)。
+        /// </summary>
+        static void ReadStyleSpans(string monoTimingPath, double frameMs, List<(int, int)> vowels, bool[] breaks) {
+            if (!File.Exists(monoTimingPath)) return;
+            int n = breaks.Length;
+            foreach (var line in File.ReadAllLines(monoTimingPath)) {
+                var p = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (p.Length < 3) continue;
+                double startMs = long.Parse(p[0]) / 1e4, endMs = long.Parse(p[1]) / 1e4;
+                if (p[2] == "br" || p[2] == "pau" || p[2] == "sil") {
+                    int a = (int)Math.Floor(startMs / frameMs);
+                    int b = (int)Math.Ceiling(endMs / frameMs);
+                    for (int i = Math.Max(0, a); i < Math.Min(n, b); i++) breaks[i] = true;
+                } else if (SingingStyleF0.Vowels.Contains(p[2])) {
+                    int s0 = Math.Clamp((int)Math.Round(startMs / frameMs), 0, n);
+                    int e0 = Math.Clamp((int)Math.Round(endMs / frameMs), 0, n);
+                    if (e0 > s0) vowels.Add((s0, e0));
+                }
+            }
         }
 
         static void KeepUnvoiced(double[] predicted, double[] edited) {
@@ -692,9 +736,12 @@ namespace OpenUtau.Core.Neutrino {
                 // RenderTeacher と同じ原点 (句の頭から 1 小節前、HTSLabelRenderer.Layout の headMs)
                 double headMsLocal = Math.Round(60000.0 / axis.GetBpmAtTick(phrase.position) * axis.TimeSignatureAtTick(phrase.position).beatPerBar);
                 double originMs = phrase.positionMs - headMsLocal;
-                int n = f0.Length;
                 int pitchStart = phrase.position - phrase.leading;
                 int pitchEnd = pitchStart + phrase.pitches.Length * 5;
+                if (phrase.styleF0 != null && !phrase.styleF0.IsDefault) {
+                    return CacheDirectPitch(phrase, StyledVoicevoxPitch(phrase, f0, originMs, pitchStart, pitchEnd, f0File));
+                }
+                int n = f0.Length;
                 double shift = Math.Pow(2, -phrase.phones[0].toneShift / 12.0);
                 var curve = new DirectPitchCurve { ticks = new int[n], heard = new float[n], under = new float[n], source = f0File };
                 for (int k = 0; k < n; k++) {
@@ -727,6 +774,42 @@ namespace OpenUtau.Core.Neutrino {
             }
         }
 
+        static DirectPitchCurve CacheDirectPitch(RenderPhrase phrase, DirectPitchCurve curve) {
+            FillGaps(curve.under);
+            if (directPitchCache.Count > 4000) {
+                directPitchCache.Clear();
+            }
+            directPitchCache[phrase.hash] = curve;
+            return curve;
+        }
+
+        /// <summary>
+        /// 整え方 (SingingStyleF0) が既定でない VOICEVOX の句の線: frame_synthesis へ送る F0 そのもの (VoicevoxRenderer.StyleF0Line) を
+        /// VOICEVOX のコマごとに描く。under = heard − 掛け具合 × PITD (ペンの基準)。前後の休符のコマは鳴らないので描かない。
+        /// </summary>
+        static DirectPitchCurve StyledVoicevoxPitch(RenderPhrase phrase, double[] f0, double originMs, int pitchStart, int pitchEnd, string source) {
+            var (sent, timesMs, padding) = Voicevox.VoicevoxRenderer.StyleF0Line(phrase, f0, originMs);
+            int n = sent.Length;
+            double scale = phrase.styleF0.Scale;
+            var curve = new DirectPitchCurve { ticks = new int[n], heard = new float[n], under = new float[n], source = source };
+            for (int j = 0; j < n; j++) {
+                int tick = phrase.timeAxis.MsPosToTickPos(timesMs[j]);
+                curve.ticks[j] = tick;
+                bool body = tick >= pitchStart && tick < pitchEnd;
+                int idx = Math.Clamp((tick - pitchStart) / 5, 0, phrase.pitches.Length - 1);
+                float pitd = body ? phrase.pitches[idx] - phrase.pitchesBeforeDeviation[idx] : 0;
+                if (body && !padding[j] && sent[j] > 0) {
+                    float c = (float)(MusicMath.FreqToTone(sent[j]) * 100);
+                    curve.heard[j] = c;
+                    curve.under[j] = c - (float)(scale * pitd);
+                } else {
+                    curve.heard[j] = float.NaN;
+                    curve.under[j] = float.NaN;
+                }
+            }
+            return curve;
+        }
+
         DirectPitchCurve LoadDirectPitch(RenderPhrase phrase) {
             try {
                 if (phrase.singer is not NeutrinoSinger s || NeutrinoUtils.DetectVersion(s.singerVersion) != NeutrinoVersion.V3) {
@@ -749,6 +832,10 @@ namespace OpenUtau.Core.Neutrino {
                 var axis = phrase.timeAxis;
                 double headMsLocal = Math.Round(60000.0 / axis.GetBpmAtTick(phrase.position) * axis.TimeSignatureAtTick(phrase.position).beatPerBar);
                 double tailMsLocal = Math.Round(60000.0 / axis.GetBpmAtTick(phrase.end) * axis.TimeSignatureAtTick(phrase.end).beatPerBar);
+                // 整え方 (SingingStyleF0) が既定でなければ、鳴らす F0 と同じ物 (SoundedDirectF0) を描く
+                double[] sounded = phrase.styleF0 == null || phrase.styleF0.IsDefault ? null
+                    : SoundedDirectF0(phrase, f0, Path.Join(tmpPath, $"ne-{HashPhraseGroups(phrase)}_mono_timing.lab"), headMsLocal, tailMsLocal);
+                double scale = phrase.styleF0?.Scale ?? 1.0;
                 int n = f0.Length;
                 int headFrames = (int)Math.Ceiling(headMsLocal / 1000.0 * 99.84);
                 int tailFrames = (int)Math.Floor(tailMsLocal / 1000.0 * 99.84);
@@ -764,7 +851,11 @@ namespace OpenUtau.Core.Neutrino {
                     bool body = k >= headFrames && k < n - tailFrames;
                     float dev = body ? phrase.pitchDeviation[idx] : 0;
                     float pitd = body ? phrase.pitches[idx] - phrase.pitchesBeforeDeviation[idx] : 0;
-                    if (f0[k] > 0) {
+                    if (f0[k] > 0 && sounded != null) {
+                        float c = (float)(MusicMath.FreqToTone(sounded[k] * shift) * 100);
+                        curve.heard[k] = c;
+                        curve.under[k] = c - (float)(scale * pitd);
+                    } else if (f0[k] > 0) {
                         float c = (float)(MusicMath.FreqToTone(f0[k] * shift) * 100);
                         curve.heard[k] = c + dev;
                         curve.under[k] = c + dev - pitd;
@@ -877,6 +968,10 @@ namespace OpenUtau.Core.Neutrino {
                     writer.Write(phrase.phones[0] != null ? phrase.phones[0].toneShift : 0);
                     if (withPitch) {
                         WriteCurve(writer, phrase.pitches);
+                        // 歌い方の F0 の整え方は direct の F0 (と、それから作る melspec・wav) を変える。既定なら今までの鍵のまま
+                        if (phrase.styleF0 != null && !phrase.styleF0.IsDefault) {
+                            phrase.styleF0.Write(writer);
+                        }
                     }
                     if (withVocoderCurves) {
                         WriteCurve(writer, phrase.gender);

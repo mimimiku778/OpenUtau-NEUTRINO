@@ -868,7 +868,9 @@ namespace OpenUtau.App.Controls {
                     var flags = phrase.phones[0].flags;
                     string? voice = flags?.FirstOrDefault(f => f.Item3 == OpenUtau.Core.Render.PhraseVoice.ABBR)?.Item1;
                     string? teacher = flags?.FirstOrDefault(f => f.Item3 == OpenUtau.Core.Neutrino.NeutrinoTeacher.ABBR)?.Item1;
-                    if (string.IsNullOrEmpty(voice) && string.IsNullOrEmpty(teacher)) {
+                    var styleF0 = phrase.styleF0;
+                    bool styled = styleF0 != null && !styleF0.IsDefault;
+                    if (string.IsNullOrEmpty(voice) && string.IsNullOrEmpty(teacher) && !styled) {
                         continue;
                     }
                     var parts = new List<string>();
@@ -877,6 +879,9 @@ namespace OpenUtau.App.Controls {
                     }
                     if (!string.IsNullOrEmpty(teacher)) {
                         parts.Add("歌い方 " + (teacher.StartsWith("NEUTRINO_") ? teacher.Substring("NEUTRINO_".Length) : teacher));
+                    }
+                    if (styled) {
+                        parts.Add(styleF0!.Describe());
                     }
                     double x0 = viewModel.TickToneToPoint(phrase.position - Part.position, 0).X;
                     double x1 = viewModel.TickToneToPoint(phrase.end - Part.position, 0).X;

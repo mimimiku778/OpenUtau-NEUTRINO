@@ -680,7 +680,11 @@ namespace OpenUtau.App.ViewModels {
                 if (track.TryGetExpDescriptor(DocManager.Inst.Project, abbr, out UExpressionDescriptor descriptor) && descriptor.CustomDefaultValue == value) {
                     value = null;
                 }
-                DocManager.Inst.ExecuteCmd(new SetNotesSameExpressionCommand(DocManager.Inst.Project, track, Part, selectedNotes, abbr, value));
+                // 歌い方の F0 の整え方は句全体に効くので、選んだ音符の句の音符全部に同じ値を入れる
+                var targets = OpenUtau.Core.Render.PhraseVoice.IsPhraseWide(abbr)
+                    ? OpenUtau.Core.Render.PhraseVoice.NotesInSamePhrases(Part, selectedNotes)
+                    : selectedNotes;
+                DocManager.Inst.ExecuteCmd(new SetNotesSameExpressionCommand(DocManager.Inst.Project, track, Part, targets, abbr, value));
             }
         }
         public void SetOptionalExpressionsChanges(string abbr, int? value) {
