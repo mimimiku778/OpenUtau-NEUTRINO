@@ -21,7 +21,10 @@ namespace OpenUtau.Core.Voicevox {
                         Log.Information($"VoicevoxProcess received");
                         string str = response.Result.Content.ReadAsStringAsync().Result;
                         //May not fit json format
-                        if (!str.StartsWith("{") || !str.EndsWith("}")) {
+                        if (string.IsNullOrWhiteSpace(str)) {
+                            // 204 No Content (initialize_speaker 等) は本文が空。包むと '{ "json":}' になって読めない
+                            str = "{}";
+                        } else if (!str.StartsWith("{") || !str.EndsWith("}")) {
                             str = "{ \"json\":" + str + "}";
                         }
                         Log.Information($"VoicevoxResponse StatusCode :{response.Result.StatusCode}");
