@@ -130,6 +130,9 @@ namespace OpenUtau.Core.Voicevox {
                                         Log.Warning($"VOICEVOX style {phrase.voiceStyle} is not in {singer.Id}; using the default style.");
                                     }
                                 }
+                                // OpenUtau mixes at 44.1 kHz. Ask the engine for 44.1 kHz instead of its native 24 kHz,
+                                // so the audio is not resampled again on our side.
+                                vsParams.outputSamplingRate = 44100;
                                 VoicevoxUtils.InitializedSpeaker(speakerID.ToString(), false);
                                 var dumpDir = Environment.GetEnvironmentVariable("OPENUTAU_DUMP_VV_QUERY");
                                 if (!string.IsNullOrEmpty(dumpDir)) {
