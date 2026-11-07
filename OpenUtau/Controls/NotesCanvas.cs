@@ -426,6 +426,7 @@ namespace OpenUtau.App.Controls {
                         RenderVibratoControl(note, viewModel, context);
                     }
                 }
+                RenderPhraseVoiceBands(leftTick, rightTick, viewModel, context);
             } finally {
                 renderPassActive = false;
             }
@@ -848,6 +849,46 @@ namespace OpenUtau.App.Controls {
                 points.Add(viewModel.TickToneToPoint(t, curve.heard[k] / 100.0 - 0.5));
             }
             Flush();
+        }
+
+        static readonly IBrush PhraseVoiceBandBrush = new SolidColorBrush(Color.FromArgb(0xB0, 0x2A, 0x6F, 0xD6));
+        static readonly IPen PhraseVoiceBandEdge = new Pen(new SolidColorBrush(Color.FromArgb(0xFF, 0x7F, 0xB2, 0xFF)), 1.5);
+
+        /// <summary>
+        /// 句ごとの声・歌い方が付いた句に、効く範囲 (句の頭から終わりまで) の帯を画面の上端に描き、中身を書く。
+        /// 値は句の頭の音符の物が句全体に効くので、帯の端 = 効く範囲の端。
+        /// </summary>
+        private void RenderPhraseVoiceBands(double leftTick, double rightTick, NotesViewModel viewModel, DrawingContext context) {
+            const double top = 2, height = 16;
+            lock (Part!) {
+                foreach (var phrase in Part.renderPhrases) {
+                    if (phrase.phones.Length == 0 || phrase.position - Part.position > rightTick || phrase.end - Part.position < leftTick) {
+                        continue;
+                    }
+                    var flags = phrase.phones[0].flags;
+                    string? voice = flags?.FirstOrDefault(f => f.Item3 == OpenUtau.Core.Render.PhraseVoice.ABBR)?.Item1;
+                    string? teacher = flags?.FirstOrDefault(f => f.Item3 == OpenUtau.Core.Neutrino.NeutrinoTeacher.ABBR)?.Item1;
+                    if (string.IsNullOrEmpty(voice) && string.IsNullOrEmpty(teacher)) {
+                        continue;
+                    }
+                    var parts = new List<string>();
+                    if (!string.IsNullOrEmpty(voice)) {
+                        parts.Add("声 " + voice);
+                    }
+                    if (!string.IsNullOrEmpty(teacher)) {
+                        parts.Add("歌い方 " + (teacher.StartsWith("NEUTRINO_") ? teacher.Substring("NEUTRINO_".Length) : teacher));
+                    }
+                    double x0 = viewModel.TickToneToPoint(phrase.position - Part.position, 0).X;
+                    double x1 = viewModel.TickToneToPoint(phrase.end - Part.position, 0).X;
+                    var rect = new Rect(x0, top, Math.Max(1, x1 - x0), height);
+                    context.DrawRectangle(PhraseVoiceBandBrush, PhraseVoiceBandEdge, rect, 3, 3);
+                    var layout = TextLayoutCache.Get(string.Join(" ・ ", parts), Brushes.White, 11,
+                        useUiFont: Preferences.Default.UseUiFontForNotes);
+                    using (context.PushClip(rect)) {
+                        layout.Draw(context, new Point(Math.Max(x0, 0) + 5, top + (height - layout.Height) / 2));
+                    }
+                }
+            }
         }
 
         private void RenderFinalPitch(double leftTick, double rightTick, NotesViewModel viewModel, DrawingContext context) {

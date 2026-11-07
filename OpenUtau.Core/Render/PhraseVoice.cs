@@ -92,6 +92,35 @@ namespace OpenUtau.Core.Render {
             }
         }
 
+        /// <summary>句全体に効く表情 (句ごとの声・歌い方)。値は句の頭の音符の物が効く。</summary>
+        public static bool IsPhraseWide(string abbr) => abbr == ABBR || abbr == Neutrino.NeutrinoTeacher.ABBR;
+
+        /// <summary>
+        /// 渡した音符と、それらが入っている句 (音符が隙間なくつながったまとまり) の音符全部。
+        /// 句全体に効く表情は句の全音符に同じ値を入れ、どの音符を選んでも効いている値が見えるようにする。
+        /// </summary>
+        public static HashSet<UNote> NotesInSamePhrases(UVoicePart part, IEnumerable<UNote> notes) {
+            var result = new HashSet<UNote>(notes);
+            if (part == null) {
+                return result;
+            }
+            lock (part) {
+                var starts = new HashSet<int>(result.Select(n => part.position + n.position));
+                foreach (var phrase in part.renderPhrases) {
+                    var inPhrase = new HashSet<int>(phrase.notes.Select(rn => phrase.position + rn.position));
+                    if (!inPhrase.Overlaps(starts)) {
+                        continue;
+                    }
+                    foreach (var note in part.notes) {
+                        if (inPhrase.Contains(part.position + note.position)) {
+                            result.Add(note);
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
         static bool VoicevoxEngineReachable() {
             try {
                 using var client = new TcpClient();
