@@ -550,6 +550,104 @@ namespace OpenUtau.Core.Neutrino {
 
         public override string ToString() => Renderers.NEUTRINO;
 
+        /// <summary>
+        /// direct の句の、画面に描く音程。heard = 描画済みの素の F0 + 音符のビブラート + PITD(実際に鳴る線、無声は NaN)、
+        /// under = heard − PITD(ペンで描いた高さから PITD を出す基準、無声は前後でつなぐ)。単位は MIDI×100。
+        /// 素の F0 はこの句の cache(今の編集の分が未描画なら同じ句の最後に描いた素)から読む。
+        /// </summary>
+        public class DirectPitchCurve {
+            public int[] ticks;
+            public float[] heard;
+            public float[] under;
+            public string source;
+        }
+
+        static readonly System.Collections.Concurrent.ConcurrentDictionary<ulong, DirectPitchCurve> directPitchCache = new();
+
+        public static DirectPitchCurve GetDirectPitch(RenderPhrase phrase) {
+            if (phrase?.renderer is not NeutrinoRenderer nr || phrase.phones.Length == 0 || !phrase.phones[0].direct
+                || phrase.pitchDeviation == null || phrase.pitches.Length == 0) {
+                return null;
+            }
+            return nr.LoadDirectPitch(phrase);
+        }
+
+        DirectPitchCurve LoadDirectPitch(RenderPhrase phrase) {
+            try {
+                if (phrase.singer is not NeutrinoSinger s || NeutrinoUtils.DetectVersion(s.singerVersion) != NeutrinoVersion.V3) {
+                    return null;
+                }
+                string tmpPath = Path.Join(PathManager.Inst.CachePath, $"ne-{phrase.preEffectHash:x16}_temp");
+                if (!Directory.Exists(tmpPath)) {
+                    return null;
+                }
+                string exact = Path.Join(tmpPath, $"ne-{HashPhraseAcoustic(phrase)}.f0");
+                string f0File = File.Exists(exact) ? exact : Directory.GetFiles(tmpPath, "ne-*.f0")
+                    .Where(f => !f.EndsWith("-edit.f0")).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
+                if (f0File == null) {
+                    return null;
+                }
+                if (directPitchCache.TryGetValue(phrase.hash, out var cached) && cached.source == f0File) {
+                    return cached;
+                }
+                double[] f0 = LoadFile(f0File);
+                var axis = phrase.timeAxis;
+                double headMsLocal = Math.Round(60000.0 / axis.GetBpmAtTick(phrase.position) * axis.TimeSignatureAtTick(phrase.position).beatPerBar);
+                double tailMsLocal = Math.Round(60000.0 / axis.GetBpmAtTick(phrase.end) * axis.TimeSignatureAtTick(phrase.end).beatPerBar);
+                int n = f0.Length;
+                int headFrames = (int)Math.Ceiling(headMsLocal / 1000.0 * 99.84);
+                int tailFrames = (int)Math.Floor(tailMsLocal / 1000.0 * 99.84);
+                int pitchStart = phrase.position - phrase.leading;
+                double shift = Math.Pow(2, -phrase.phones[0].toneShift / 12.0);
+                var curve = new DirectPitchCurve { ticks = new int[n], heard = new float[n], under = new float[n], source = f0File };
+                for (int k = 0; k < n; k++) {
+                    // DirectF0 (SampleCurve) と同じ時刻の当て方
+                    double ms = phrase.positionMs - phrase.leadingMs + (k - headFrames) * 9.984;
+                    int tick = axis.MsPosToTickPos(ms);
+                    curve.ticks[k] = tick;
+                    int idx = Math.Clamp((int)((double)(tick - pitchStart) / 5), 0, phrase.pitches.Length - 1);
+                    bool body = k >= headFrames && k < n - tailFrames;
+                    float dev = body ? phrase.pitchDeviation[idx] : 0;
+                    float pitd = body ? phrase.pitches[idx] - phrase.pitchesBeforeDeviation[idx] : 0;
+                    if (f0[k] > 0) {
+                        float c = (float)(MusicMath.FreqToTone(f0[k] * shift) * 100);
+                        curve.heard[k] = c + dev;
+                        curve.under[k] = c + dev - pitd;
+                    } else {
+                        curve.heard[k] = float.NaN;
+                        curve.under[k] = float.NaN;
+                    }
+                }
+                FillGaps(curve.under);
+                if (directPitchCache.Count > 4000) {
+                    directPitchCache.Clear();
+                }
+                directPitchCache[phrase.hash] = curve;
+                return curve;
+            } catch (Exception e) {
+                Log.Error(e, "Failed to load NEUTRINO direct pitch.");
+                return null;
+            }
+        }
+
+        static void FillGaps(float[] v) {
+            int last = -1;
+            for (int i = 0; i < v.Length; i++) {
+                if (float.IsNaN(v[i])) {
+                    continue;
+                }
+                if (last < 0) {
+                    for (int j = 0; j < i; j++) v[j] = v[i];
+                } else if (i - last > 1) {
+                    for (int j = last + 1; j < i; j++) v[j] = v[last] + (v[i] - v[last]) * (j - last) / (i - last);
+                }
+                last = i;
+            }
+            if (last >= 0) {
+                for (int j = last + 1; j < v.Length; j++) v[j] = v[last];
+            }
+        }
+
         public override RenderPitchResult LoadRenderedPitch(RenderPhrase phrase) {
             if (this.singer == null) {
                 // Nothing rendered yet, so Version cannot be resolved.
