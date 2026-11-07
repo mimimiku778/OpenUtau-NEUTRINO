@@ -17,10 +17,11 @@ d7eecf5b40439b3cf7619f903d80e22e50a64963 pika-02-03/OpenUtau-NEUTRINO cli 6/9 (s
 d239c976455a011777536d781b86a34a999c0267 pika-02-03/OpenUtau-NEUTRINO cli 9/9 (のまま)
 72d4e4c59b260962c244e7dfff493e70737cfdaa pika-02-03/OpenUtau-NEUTRINO cli-neutrino 配布版に合わせる直し (固定版の bc287690 と同じ)
 59140887d54937c14a8c97eec0546ad8a9bced65 pika-02-03/OpenUtau-NEUTRINO teacher VOICEVOX: 204 No Content を空の JSON として読む (初めて使うスタイルの句が落ちていた)
-9b0203c5de9244ec243f84ac1d55c188974fc69b pika-02-03/OpenUtau-NEUTRINO teacher 句ごとの声と歌い方
-96462cfabf0431b6478191009e9d60d51b4e235c pika-02-03/OpenUtau-NEUTRINO v3-expr v3 の声のトラックでは 2.x でだけ効く表情を出さない
-ccc76f7abe720a3e4211dc11da2b3c6b860909e9 pika-02-03/OpenUtau-NEUTRINO teacher-band 効く範囲を帯で見せる
-2f6f1b764c9561365f1950770ad1ff53620ad93f pika-02-03/OpenUtau-NEUTRINO vv-44100 VOICEVOX を 44100 Hz で受ける
-2d54ca072567b5c9780d179225fb7ea3af0be887 pika-02-03/OpenUtau-NEUTRINO sinc 44100 Hz でない音の読み込みを WDL の sinc で変換
-bcdf771ed58ab2fd6836e0541bca1ace7e45dfd6 pika-02-03/OpenUtau-NEUTRINO vv-katakana カタカナの歌詞
-15164a6ce5aab8cd5faa84da773c755ad92f8316 pika-02-03/OpenUtau-NEUTRINO vv-lyrics 発音ヒント付きの歌詞 (あっ[a cl])・づ・ー を歌う
+b7be2600524443e90996255d01209836a5d318b8 pika-02-03/OpenUtau-NEUTRINO teacher 句ごとの声と歌い方
+45c8e3a78b47b948bea9b3b1fbff7e68e7f174fc pika-02-03/OpenUtau-NEUTRINO v3-expr v3 の声のトラックでは 2.x でだけ効く表情を出さない
+c09a9115566e52c7cf53ea77d0bc4f486b07eaa8 pika-02-03/OpenUtau-NEUTRINO teacher-band 効く範囲を帯で見せる
+988cbb17902f02aa101db80b89f0238b5fa34ac5 pika-02-03/OpenUtau-NEUTRINO vv-44100 VOICEVOX を 44100 Hz で受ける
+68f4a04c24bb1b2a88ed31604aff812aaca2ba33 pika-02-03/OpenUtau-NEUTRINO sinc 44100 Hz でない音の読み込みを WDL の sinc で変換
+2d2e6a9d14a29ddbe6d0938318db8d3a69e93310 pika-02-03/OpenUtau-NEUTRINO vv-katakana カタカナの歌詞
+a4d059d453b7d9c226dfe433d46d8bbee30e54f2 pika-02-03/OpenUtau-NEUTRINO vv-lyrics 発音ヒント付きの歌詞 (あっ[a cl])・づ・ー を歌う
+c398f2a1dc2903279c0404e395f5dd1786c489fc pika-02-03/OpenUtau-NEUTRINO style-f0 歌い方の掛け具合・平滑・語尾の上限

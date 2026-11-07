@@ -13,6 +13,7 @@ cli | christianazinn さんの PR [openutau/OpenUtau#2162](https://github.com/op
 cli-neutrino | この repo | CLI を NEUTRINO 対応版で動くようにする直し | |
 teacher | この repo | 句ごとに声と歌い方を選べる(VOICEVOX の声を NEUTRINO の歌い方で歌わせる) | 1 つのトラックの中で、句(音符が隙間なくつながったまとまり)ごとに歌う声を NEUTRINO・VOICEVOX の歌手から選べます(音符の表情 `voice (phrase)`)。歌い方(音程の線、VOICEVOX では音量も)は別の NEUTRINO の歌手から取れる(`singing style (phrase)`)ので、たとえば VOICEVOX のずんだもんの声を NEUTRINO の KIRITAN の歌い方で歌わせ、その上に自分のビブラート・PITD を足せます。NEUTRINO 本体のサポートモデル(`-S`)と同じ働きを、句ごとに選べるようにした物です。 | | phrase-voice.webp
 teacher-band | この repo | どの句をどの声と歌い方で歌っているかが見える | 声・歌い方を付けた句には、ピアノロールの上端に句の頭から終わりまでの帯を描き、「声 …・歌い方 …」と書きます。1 つの音符で選ぶと、その句の音符全部に同じ値が入ります。 |
+style-f0 | この repo | 歌い方をどれだけ効かせるかを句ごとに決められる | NEUTRINO の direct の句と、歌い方を付けた VOICEVOX の句で、鳴らす音程の線を句ごとに整えられます。`tuning % (phrase)` は自分で付けたビブラート・PITD を何割足すか(歌い方の線に薄く混ぜたい時に下げる)、`smoothing Hz (phrase)` は線のガタつきを均す強さ、`tail limit c (phrase)` は語尾で音程が深く落ちすぎるのを何セントで止めるか。帯にも「調声 12.5% ・ 平滑 12 Hz ・ 語尾 200c」のように出ます。既定のままなら今までと同じ音です。 |
 v3-expr | この repo | NEUTRINO v3 の声のトラックでは、2.x でだけ効く表情(engine type・engine mode・tone shift)を出さない | |
 vv-44100 | この repo | VOICEVOX の音を 44.1 kHz で受ける | 24 kHz で受けて OpenUtau 側で上げていたため、8 kHz より上が 10〜18 dB 削れていました。 | openutau-fix/voicevox-44100 76f51a7faed1642bce3b648ec270ee2638a0f35b
 sinc | この repo | 44.1 kHz でない音の読み込みを sinc で変換する | 48 kHz の伴奏や NEUTRINO の出力などを、線形補間でなく sinc で変換します(48 kHz からだと 16 kHz で −11 dB、18 kHz で −21 dB 削れ、1〜2 標本遅れていたのが直ります)。NAudio が次の版で既定にする設定と同じです。 | openutau-fix/sinc-resampling c94ffe8ad1daca46048d878bf49bb5bf00c11ff7
