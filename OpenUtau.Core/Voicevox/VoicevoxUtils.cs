@@ -100,6 +100,11 @@ namespace OpenUtau.Core.Voicevox {
                     if (!kanas.ContainsKey(kana)) {
                         kanas.Add(kana.Normalize(), group[0].Normalize());
                     }
+                    // The engine also sings katakana (common for loanwords, e.g. メ ロ ディ), so accept it as written.
+                    string katakana = ToKatakana(kana).Normalize();
+                    if (!kanas.ContainsKey(katakana)) {
+                        kanas.Add(katakana, group[0].Normalize());
+                    }
                 }
             }
             string[] pauseGroups = "R pau AP SP".Split();
@@ -109,6 +114,16 @@ namespace OpenUtau.Core.Voicevox {
                     paus.Add(group.Normalize(), pauseGroups[0].Normalize());
                 }
             }
+        }
+
+        static string ToKatakana(string hiragana) {
+            var chars = hiragana.ToCharArray();
+            for (int i = 0; i < chars.Length; i++) {
+                if (chars[i] >= '\u3041' && chars[i] <= '\u3096') {
+                    chars[i] = (char)(chars[i] + 0x60);
+                }
+            }
+            return new string(chars);
         }
     }
 
