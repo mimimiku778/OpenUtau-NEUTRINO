@@ -19,17 +19,24 @@ BASE_VERSION=${BASE_VERSION:-} LATEST_VERSION=${LATEST_VERSION:-}
 LATEST_UPSTREAM_SHA=${LATEST_UPSTREAM_SHA:-} LATEST_UPSTREAM_DATE=${LATEST_UPSTREAM_DATE:-}
 UPSTREAM_REPO=${UPSTREAM_REPO:-openutau/OpenUtau}
 commit_link() { echo "[${2:0:8}](https://github.com/$1/commit/$2)"; }
-# features.txt を 1 行ずつ、タブ区切り (key, 誰の物か, 題, 説明, 本家向けブランチとコミット) で出す
+# features.txt を 1 行ずつ、US (\037) 区切り (key, 誰の物か, 題, 説明, 本家向けブランチとコミット, 画像) で出す
+# (タブだと空の列が詰まるので、空白でない区切りにする)
+US=$'\037'
 features() {
   awk -F' *\\| *' '!/^[[:space:]]*(#|$)/ {
-    for (i = 1; i <= 5; i++) gsub(/^ +| +$/, "", $i)
-    print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 }' "$d/features.txt"
+    for (i = 1; i <= 6; i++) gsub(/^ +| +$/, "", $i)
+    print $1 "\037" $2 "\037" $3 "\037" $4 "\037" $5 "\037" $6 }' "$d/features.txt"
 }
 # 足した機能の一覧。説明の無い物は載せない。
-# 題の後ろに最新版のコミットへのリンクを並べる (そこから中身へ飛べるように)
+# 題の後ろに最新版のコミットへのリンクを並べる (そこから中身へ飛べるように)。
+# 画像の列があれば、README にだけその画面 (docs/ の下) を項目の中に載せる
 changes() {
-  features | while IFS=$'\t' read -r key owner title desc fix; do
-    [ -n "$desc" ] && printf -- '- **%s** %s: %s\n' "$title" "$(commits_of "$d/extra-commits-latest.txt" "$key")" "$desc"
+  features | while IFS=$US read -r key owner title desc fix img; do
+    [ -n "$desc" ] || continue
+    printf -- '- **%s** %s: %s\n' "$title" "$(commits_of "$d/extra-commits-latest.txt" "$key")" "$desc"
+    if [ -n "$img" ] && [ "$MODE" = readme ]; then
+      printf '\n  <img src="docs/%s" alt="%s">\n\n' "$img" "$title"
+    fi
   done
 }
 # <一覧> <key> → その key のコミットへのリンクを空白区切りで。sha が決まっていない行 (40 桁でない) は「未記入」、1 行も無ければ「—」
@@ -44,7 +51,7 @@ commits_of() {
 commits_table() {
   echo "| 中身 | 誰の物か | 固定版 | 最新版 | 本家 \`master\` 向け |"
   echo "|---|---|---|---|---|"
-  features | while IFS=$'\t' read -r key owner title desc fix; do
+  features | while IFS=$US read -r key owner title desc fix img; do
     local up="" branch sha
     if [ -n "$fix" ]; then
       read -r branch sha <<< "$fix"
@@ -58,7 +65,7 @@ commits_table() {
 # 足すコミットの key が全部 features.txt にあるか (表から漏れないように)
 check_keys() {
   local keys bad
-  keys=$(features | cut -f1)
+  keys=$(features | cut -d "$US" -f1)
   bad=$(awk '!/^[[:space:]]*(#|$)/ {print ($3 == "" ? "(key なし: " substr($1, 1, 8) ")" : $3)}' "$d/extra-commits.txt" "$d/extra-commits-latest.txt" \
     | sort -u | while read -r k; do grep -qxF -- "$k" <<< "$keys" || echo "$k"; done)
   if [ -n "$bad" ]; then
@@ -133,6 +140,7 @@ part() {
   done < "$d/$1.md"
 }
 check_keys
+MODE=${1:-}
 case "${1:-}" in
   readme)  { part top; part howto; part about; part source; part notice; } ;;
   release) { echo "固定版は OpenUtau ${BASE_VERSION}(PR のまま)、最新版(ファイル名に latest)は本家 [OpenUtau](https://github.com/openutau/OpenUtau) の最新を混ぜたものです(動作保証なし)。入れるのはどちらか一方です。"; echo; part howto; part about; part notice; } ;;
