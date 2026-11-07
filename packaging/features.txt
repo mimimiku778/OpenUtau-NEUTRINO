@@ -1,0 +1,19 @@
+# 足した機能の台帳。README・Release・同梱の説明書の「足した機能」の一覧と、README の「足したコミット」の表はここから組む。
+# 1 行に 1 つ、「 | 」区切り: <key> | <誰の物か> | <題> | <説明> | <本家 master 向けのブランチ> <その先頭のコミット (40 桁)>
+# - key は extra-commits.txt・extra-commits-latest.txt の 3 列目と合わせる。表の「固定版」「最新版」の列は、その key のコミットを集めて作る
+# - 説明が空なら「足した機能」の一覧には載せず、表にだけ載せる
+# - 最後の列は、本家 OpenUtau の master に 1 コミットで載せた openutau-fix/* のブランチ (無ければ空)
+# - 並びは当てる順 (おおむね)。表もこの順
+mel | rokujyushi さん([`Editid-Mel-spectrogram`](https://github.com/rokujyushi/OpenUtau/tree/Editid-Mel-spectrogram) ブランチ) | v3 の声でも声色と明るさを変えられる(mel 編集) | 元の PR では、ずんだもん等の NEUTRINO v3 の声に「GENC(声色)」と「TENC(明るさ・強さ)」のカーブが効きません。この版では効くので、声を太く・細くしたり、語尾だけ暗く弱くしたりを OpenUtau の中でできます。 |
+direct-pitd | この repo | direct でも自分で付けたビブラート・ピッチが効く | direct をオンにすると NEUTRINO の自然な音程のまま歌いますが、元の PR ではそのとき OpenUtau で付けたビブラートや PITD(ピッチのカーブ)が無視されます。この版では NEUTRINO の自然な音程の上に足して鳴らすので、「歌い回しはそのまま、ここだけビブラートやしゃくりを足す」ができます。 |
+pitch-line | この repo | 聞こえる音程がそのまま画面に出る | 元の PR では、direct の部分でも画面の灰色の線は OpenUtau 側の音程のままで、聞こえる音程と食い違っていました。この版では実際に鳴る音程を線で描くので、線を見ながら PITD をペンで描き足せます。 |
+mac-wheel | この repo | Mac で Shift+ホイールの横スクロール | Mac では Shift を押しながらホイールを回しても横に動かず縦に動いていたのを直しました。ピアノロールとトラックの画面で横に動きます。 | openutau-fix/mac-shift-wheel 8ae718f25761df64901baa24d631c58a61ee9937
+cli | christianazinn さんの PR [openutau/OpenUtau#2162](https://github.com/openutau/OpenUtau/pull/2162)(コミットはこの repo に写してある) | 画面を開かずに書き出せる(CLI) | OpenUtau を起動せず、コマンド 1 行で ustx を wav に書き出せます(使い方は上)。たくさんの曲をまとめて書き出したり、ほかのツールから自動で呼んだりできます。本家に出ている未マージの PR [openutau/OpenUtau#2162](https://github.com/openutau/OpenUtau/pull/2162) を、NEUTRINO 対応版で動くように直して入れています。 |
+cli-neutrino | この repo | CLI を NEUTRINO 対応版で動くようにする直し | |
+teacher | この repo | 句ごとに声を選び、VOICEVOX の句の音程は NEUTRINO に作らせる(句ごとの声・F0 の先生) | 1 つのトラックの中で、句(音符が隙間なくつながったまとまり)ごとに NEUTRINO・VOICEVOX の歌手を選べます(音符の表情 `voice (phrase)`)。VOICEVOX が歌う句は、音程を NEUTRINO の歌手に作らせられる(`F0 teacher (NEUTRINO)`)ので、VOICEVOX の声を NEUTRINO の歌い回しで歌わせ、その上に自分のビブラート・PITD を足せます。 |
+teacher-band | この repo | どの句をどの声と先生で歌っているかが見える | 声・先生を付けた句には、ピアノロールの上端に句の頭から終わりまでの帯を描き、「声 …・先生 …」と書きます。1 つの音符で選ぶと、その句の音符全部に同じ値が入ります。 |
+v3-expr | この repo | NEUTRINO v3 の声のトラックでは、2.x でだけ効く表情(engine type・engine mode)を出さない | |
+vv-44100 | この repo | VOICEVOX の音を 44.1 kHz で受ける | 24 kHz で受けて OpenUtau 側で上げていたため、8 kHz より上が 10〜18 dB 削れていました。 | openutau-fix/voicevox-44100 76f51a7faed1642bce3b648ec270ee2638a0f35b
+sinc | この repo | 44.1 kHz でない音の読み込みを sinc で変換する | 48 kHz の伴奏や NEUTRINO の出力などを、線形補間でなく sinc で変換します(48 kHz からだと 16 kHz で −11 dB、18 kHz で −21 dB 削れ、1〜2 標本遅れていたのが直ります)。NAudio が次の版で既定にする設定と同じです。 | openutau-fix/sinc-resampling c94ffe8ad1daca46048d878bf49bb5bf00c11ff7
+vv-katakana | この repo | VOICEVOX でカタカナの歌詞も歌う | かなの表にひらがなしかなく、カタカナの音符は黙って休符になっていました。 | openutau-fix/voicevox-katakana-lyrics e522d9f09f476796efb00d0d582552dbcb1da546
+vv-lyrics | この repo | VOICEVOX で `あっ[a cl]`・`づ`・`ー` も歌う | 発音ヒント付きの歌詞(`あっ[a cl]` など)・`づ`・`ー`(さー)が黙って休符になり、無音でした。`あっ` は「あ」「っ」の 2 音符に分けて渡し、`ー` は前の音の母音で歌います。 |

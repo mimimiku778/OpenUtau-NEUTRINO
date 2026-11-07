@@ -1,19 +1,35 @@
 # 「最新版」で、元のソースに本家 OpenUtau の master を混ぜた後に足すコミット。上から順に当てる。
 # extra-commits.txt と同じ変更を、本家の最新に当たる形にしたもの。
 # pika-02-03/OpenUtau-NEUTRINO の neutrino-latest-dist (本家 master f920e242 を混ぜた上) に並べてある。
-# 1行に1つ: <コミット(40桁)> <そのコミットがあるリポジトリ> <メモ>。README の一覧は extra-commits.txt の説明を使う。
-# 変えたら packaging/source.md のコミットの表も直す。
-7b8ebd790b6c5a7f7a91c14c339eb70f136b4d25 pika-02-03/OpenUtau-NEUTRINO mel 編集 (c5cb0f47 のまま)
-f6f6ae32d2e7655638e7817a247ba217676dd7a1 pika-02-03/OpenUtau-NEUTRINO direct でもビブラートと PITD (7a637f20。本家の pitchesBeforeVibrato と名前がぶつかるので stepPitches にした)
-ca70f8bedb679aba8f5994904ad2276b9ab7165a pika-02-03/OpenUtau-NEUTRINO 鳴る音程を画面に描く (7ee7cbc8 のまま)
-502e607cf137ce42fd6a7882581ba20e4a6fca9b pika-02-03/OpenUtau-NEUTRINO Mac の Shift+ホイールで横スクロール (4e6c5f7c のまま)
-8c0789a5f65dbf43b82039629d9e4c294adaba0b pika-02-03/OpenUtau-NEUTRINO CLI 1/10 (openutau/OpenUtau#2162 のまま)
-759ea4cd326bd5187b5e68420547b761c4b8c3a2 pika-02-03/OpenUtau-NEUTRINO CLI 2/10 (のまま)
-d75ba160d6f53d90bf38485603876ce50f3e42e2 pika-02-03/OpenUtau-NEUTRINO CLI 3/10 (本家が OpenUtau.sln を OpenUtau.slnx にしたので slnx に足した)
-fdd4a32895b64b1e9f3fd22cdb010757f1e4cd6a pika-02-03/OpenUtau-NEUTRINO CLI 4/10 (のまま)
-28c610b0e30503cc3a1529f2a35921877d276168 pika-02-03/OpenUtau-NEUTRINO CLI 5/10 (のまま)
-d7eecf5b40439b3cf7619f903d80e22e50a64963 pika-02-03/OpenUtau-NEUTRINO CLI 6/10 (slnx から外した)
-77a8ef4c77937e5099871867a70f3b870b391a9d pika-02-03/OpenUtau-NEUTRINO CLI 7/10 (のまま)
-4e770fc1caf9feb4bb3aa2f5fe26f0b840490b60 pika-02-03/OpenUtau-NEUTRINO CLI 8/10 (のまま)
-d239c976455a011777536d781b86a34a999c0267 pika-02-03/OpenUtau-NEUTRINO CLI 9/10 (のまま)
-db870028e686eed23bd7acb09ba476de923e1eb6 pika-02-03/OpenUtau-NEUTRINO CLI 10/10 配布版に合わせる直し (d8c3da40 のまま)
+# 1行に1つ: <コミット(40桁)> <そのコミットがあるリポジトリ> <key> <メモ>。key は features.txt と合わせる。
+7b8ebd790b6c5a7f7a91c14c339eb70f136b4d25 pika-02-03/OpenUtau-NEUTRINO mel (c5cb0f47 のまま)
+f6f6ae32d2e7655638e7817a247ba217676dd7a1 pika-02-03/OpenUtau-NEUTRINO direct-pitd (7a637f20。本家の pitchesBeforeVibrato と名前がぶつかるので stepPitches にした)
+ca70f8bedb679aba8f5994904ad2276b9ab7165a pika-02-03/OpenUtau-NEUTRINO pitch-line (7ee7cbc8 のまま)
+502e607cf137ce42fd6a7882581ba20e4a6fca9b pika-02-03/OpenUtau-NEUTRINO mac-wheel (4e6c5f7c のまま)
+8c0789a5f65dbf43b82039629d9e4c294adaba0b pika-02-03/OpenUtau-NEUTRINO cli 1/9 (openutau/OpenUtau#2162 のまま)
+759ea4cd326bd5187b5e68420547b761c4b8c3a2 pika-02-03/OpenUtau-NEUTRINO cli 2/9 (のまま)
+d75ba160d6f53d90bf38485603876ce50f3e42e2 pika-02-03/OpenUtau-NEUTRINO cli 3/9 (本家が OpenUtau.sln を OpenUtau.slnx にしたので slnx に足した)
+fdd4a32895b64b1e9f3fd22cdb010757f1e4cd6a pika-02-03/OpenUtau-NEUTRINO cli 4/9 (のまま)
+28c610b0e30503cc3a1529f2a35921877d276168 pika-02-03/OpenUtau-NEUTRINO cli 5/9 (のまま)
+d7eecf5b40439b3cf7619f903d80e22e50a64963 pika-02-03/OpenUtau-NEUTRINO cli 6/9 (slnx から外した)
+77a8ef4c77937e5099871867a70f3b870b391a9d pika-02-03/OpenUtau-NEUTRINO cli 7/9 (のまま)
+4e770fc1caf9feb4bb3aa2f5fe26f0b840490b60 pika-02-03/OpenUtau-NEUTRINO cli 8/9 (のまま)
+d239c976455a011777536d781b86a34a999c0267 pika-02-03/OpenUtau-NEUTRINO cli 9/9 (のまま)
+db870028e686eed23bd7acb09ba476de923e1eb6 pika-02-03/OpenUtau-NEUTRINO cli-neutrino 配布版に合わせる直し (d8c3da40 のまま)
+# ---- ここから下は neutrino-f0-teacher (neutrino-latest-dist の上に積んだ物) ----
+a82b6282954f88f7ce62f08b8b748234de04e0a3 pika-02-03/OpenUtau-NEUTRINO cli-neutrino 画面なしの書き出しで、再生管理を先に作り終えてからプロジェクトを読む
+9b8602ec3bdd39e2ea52ee3e896c82f98f6dc91b pika-02-03/OpenUtau-NEUTRINO teacher VOICEVOX: 204 No Content を空の JSON として読む (初期化前のスタイルを使う句が落ちていた)
+35ea7a7649aa81df7bd3acefd15a5af6646251a0 pika-02-03/OpenUtau-NEUTRINO teacher 句ごとに NEUTRINO の F0 を先生にし、句ごとに歌手 (NEUTRINO・VOICEVOX) を替える
+74d31ad84cf2b7959a9693a87328fc20ac85e352 pika-02-03/OpenUtau-NEUTRINO teacher VOICEVOX が歌う句にも鳴る線 (先生の F0 + ビブラート + PITD) を画面に描く
+ab84f276e236170e4277df634bfd306ed70ad814 pika-02-03/OpenUtau-NEUTRINO teacher NEUTRINO・VOICEVOX のトラックがあるプロジェクトへ pvo・f0t を自動で足す
+d2c9b23dbc0397f02285cd13d2391cae2d366b79 pika-02-03/OpenUtau-NEUTRINO teacher 選択肢の上限を選択肢の数に合わせる
+1fe506b8ef62ae48846cbddf360465d411733199 pika-02-03/OpenUtau-NEUTRINO v3-expr v3 の声のトラックでは 2.x でだけ効く表情を出さない
+fc1ea2a61e76584f6e9004ca7d4ade1cd340f287 pika-02-03/OpenUtau-NEUTRINO teacher-band 効く範囲を帯で見せる
+543453bd111dd49c40a2b8a00504cf78d82078d7 pika-02-03/OpenUtau-NEUTRINO v3-expr tone shift は v3 でも隠さない
+53d00d52fb370b0a82602e2b96240eef6ae73cb9 pika-02-03/OpenUtau-NEUTRINO teacher 先生の WAV の速さの取り違えで句の終わりが無音になっていたのを直す
+850b263bad8a9e02674c813b35f33131d0f7b06f pika-02-03/OpenUtau-NEUTRINO vv-44100 VOICEVOX を 44100 Hz で受ける
+2bc39830a657d3e082393c81b540afe9832ecefe pika-02-03/OpenUtau-NEUTRINO sinc 44100 Hz でない mono を窓つき sinc (Kaiser) で変換
+722088326497cda8eed09bc4b8b46932cf755a7b pika-02-03/OpenUtau-NEUTRINO sinc 本家向け PR と同じ中身に揃える (ステレオも sinc で変換。VOICEVOX 44.1 kHz 側も触る)
+0c03c291ab73f07e4b9e12f9cb615edbda4d0208 pika-02-03/OpenUtau-NEUTRINO vv-katakana カタカナの歌詞
+9a6c25e135a22ba95afc4f5b8781a51cd4a430a2 pika-02-03/OpenUtau-NEUTRINO sinc 自作の Kaiser をやめて WDL の sinc に替える (本家向け PR と同じ)
+6d97e184b77aa33c81bc381fea2219199f1d0761 pika-02-03/OpenUtau-NEUTRINO vv-lyrics 発音ヒント付きの歌詞 (あっ[a cl])・づ・ー を歌う

@@ -4,6 +4,8 @@
 #   readme=リポジトリの README / release=Release の本文 / mac・windows=配布物に同梱する説明書
 # 環境変数: BUILD_REPO (無ければ GITHUB_REPOSITORY)、BASE_VERSION・LATEST_VERSION (その版を出していなければ空)、
 #   SOURCE_REPO・SOURCE_REF・SOURCE_SHA・LATEST_UPSTREAM_SHA・LATEST_UPSTREAM_DATE (渡さなければ state/last-build.json から)
+# 部品: top.md・howto.md・about.md・source.md・notice.md (文章)、features.txt (足した機能の台帳)、
+#   extra-commits.txt・extra-commits-latest.txt (足すコミット。3 列目の key で features.txt と結ぶ)、source-branches.txt (ソースを並べたブランチ)
 set -euo pipefail
 d=$(cd "$(dirname "$0")" && pwd)
 # 渡されていない値は、前に配布した記録 (state/last-build.json) から取る (手元で組む時用。CI は全部渡す)
@@ -16,9 +18,52 @@ SOURCE_REPO=${SOURCE_REPO:-rokujyushi/OpenUtau} SOURCE_REF=${SOURCE_REF:-neutrin
 BASE_VERSION=${BASE_VERSION:-} LATEST_VERSION=${LATEST_VERSION:-}
 LATEST_UPSTREAM_SHA=${LATEST_UPSTREAM_SHA:-} LATEST_UPSTREAM_DATE=${LATEST_UPSTREAM_DATE:-}
 UPSTREAM_REPO=${UPSTREAM_REPO:-openutau/OpenUtau}
-# 足した機能の一覧 (extra-commits.txt の説明から)。説明が「-」の行は載せない。
+commit_link() { echo "[${2:0:8}](https://github.com/$1/commit/$2)"; }
+# features.txt を 1 行ずつ、タブ区切り (key, 誰の物か, 題, 説明, 本家向けブランチとコミット) で出す
+features() {
+  awk -F' *\\| *' '!/^[[:space:]]*(#|$)/ {
+    for (i = 1; i <= 5; i++) gsub(/^ +| +$/, "", $i)
+    print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 }' "$d/features.txt"
+}
+# 足した機能の一覧。説明の無い物は載せない。
 changes() {
-  awk '!/^[[:space:]]*(#|$)/ { $1 = ""; $2 = ""; sub(/^ +/, ""); if ($0 != "-") printf "- %s\n", $0 }' "$d/extra-commits.txt"
+  features | while IFS=$'\t' read -r key owner title desc fix; do
+    [ -n "$desc" ] && printf -- '- **%s**: %s\n' "$title" "$desc"
+  done
+}
+# <一覧> <key> → その key のコミットへのリンクを空白区切りで。sha が決まっていない行 (40 桁でない) は「未記入」、1 行も無ければ「—」
+commits_of() {
+  local out
+  out=$(awk -v k="$2" '!/^[[:space:]]*(#|$)/ && $3 == k {print $1, $2}' "$1" | while read -r sha repo; do
+    if [[ $sha =~ ^[0-9a-f]{40}$ ]]; then commit_link "$repo" "$sha"; else echo "**未記入**"; fi
+  done | paste -s -d ' ' -)
+  echo "${out:-—}"
+}
+# 足したコミットの表: 機能 → 誰の物か → 固定版・最新版のコミット → 本家 master 向けのブランチ
+commits_table() {
+  echo "| 中身 | 誰の物か | 固定版 | 最新版 | 本家 \`master\` 向け |"
+  echo "|---|---|---|---|---|"
+  features | while IFS=$'\t' read -r key owner title desc fix; do
+    local up="" branch sha
+    if [ -n "$fix" ]; then
+      read -r branch sha <<< "$fix"
+      if [[ ${sha:-} =~ ^[0-9a-f]{40}$ ]]; then
+        up="[\`$branch\`](https://github.com/{{BUILD_REPO}}/tree/$branch) $(commit_link '{{BUILD_REPO}}' "$sha")"
+      else up="**未記入**"; fi
+    fi
+    echo "| $title | $owner | $(commits_of "$d/extra-commits.txt" "$key") | $(commits_of "$d/extra-commits-latest.txt" "$key") | $up |"
+  done
+}
+# 足すコミットの key が全部 features.txt にあるか (表から漏れないように)
+check_keys() {
+  local keys bad
+  keys=$(features | cut -f1)
+  bad=$(awk '!/^[[:space:]]*(#|$)/ {print ($3 == "" ? "(key なし: " substr($1, 1, 8) ")" : $3)}' "$d/extra-commits.txt" "$d/extra-commits-latest.txt" \
+    | sort -u | while read -r k; do grep -qxF -- "$k" <<< "$keys" || echo "$k"; done)
+  if [ -n "$bad" ]; then
+    echo "packaging/features.txt に無い key が extra-commits*.txt にあります: $(echo $bad)" >&2
+    exit 1
+  fi
 }
 # ダウンロードの表。出している版だけを載せる。
 downloads() {
@@ -34,23 +79,17 @@ downloads() {
   echo
   echo "固定版は PR のまま、最新版は本家の最新を混ぜたものです(動作保証なし)。入れるのはどちらか一方です。"
 }
-commit_link() { echo "[${2:0:8}](https://github.com/$1/commit/$2)"; }
-# 素の OpenUtau に何を重ねたかの表。出していない版は「出していません」。
+# 素の OpenUtau に何を重ねたか。出していない版は「今は出していません」。
 layers() {
-  local fixed="(今は出していません)" latest="(今は出していません)"
-  [ -n "$BASE_VERSION" ] && fixed="$BASE_VERSION(下の NEUTRINO 対応が取り込んだ版)"
+  local fixed="今は出していません" latest="今は出していません"
+  [ -n "$BASE_VERSION" ] && fixed="$BASE_VERSION(2 の NEUTRINO 対応が取り込んだ版)"
   if [ -n "$LATEST_VERSION" ]; then
     latest="$LATEST_VERSION(本家 \`master\` の $(commit_link "$UPSTREAM_REPO" "$LATEST_UPSTREAM_SHA")、${LATEST_UPSTREAM_DATE})"
   fi
-  local src="rokujyushi さんの PR [openutau/OpenUtau#2136](https://github.com/openutau/OpenUtau/pull/2136)。ソースは [${SOURCE_REPO}](https://github.com/${SOURCE_REPO}/tree/${SOURCE_REF}) の \`${SOURCE_REF}\` ブランチ($(commit_link "$SOURCE_REPO" "$SOURCE_SHA"))"
-  echo "| | 固定版 | 最新版 |"
-  echo "|---|---|---|"
-  echo "| 1. 本家 OpenUtau | $fixed | $latest |"
-  echo "| 2. NEUTRINO 対応 | $src | 同じ |"
-  echo "| 3. 画面なしの書き出し(CLI) | christianazinn さんの PR [openutau/OpenUtau#2162](https://github.com/openutau/OpenUtau/pull/2162) と、NEUTRINO 対応版で動くようにした直し | 同じ(本家の最新に当たる形) |"
-  echo "| 4. この版で足した機能 | 下の「足した機能」 | 同じ(本家の最新に当たる形) |"
-  echo
-  echo "VOICEVOX で歌う機能は、1 の本家 OpenUtau に元からある物です。どのコミットを誰のどのブランチから入れたかは、下の「ソース」にあります。"
+  echo "1. 本家 [OpenUtau](https://github.com/${UPSTREAM_REPO})。固定版は ${fixed}、最新版は ${latest}。VOICEVOX で歌う機能はここに元からあります。"
+  echo "2. NEUTRINO 対応。rokujyushi さんの PR [openutau/OpenUtau#2136](https://github.com/openutau/OpenUtau/pull/2136)。ソースは [${SOURCE_REPO}](https://github.com/${SOURCE_REPO}/tree/${SOURCE_REF}) の \`${SOURCE_REF}\` ブランチ($(commit_link "$SOURCE_REPO" "$SOURCE_SHA"))。"
+  echo "3. 画面なしの書き出し(CLI)。christianazinn さんの PR [openutau/OpenUtau#2162](https://github.com/openutau/OpenUtau/pull/2162) を、NEUTRINO 対応版で動くように直した物。"
+  echo "4. この版で足した機能。下の「足した機能」。"
 }
 # ビルドしたソースを並べたブランチの表。台帳 (source-branches.txt) が今のソースと合う版だけを載せる。
 source_branches() {
@@ -61,10 +100,10 @@ source_branches() {
     case "$flavor" in ''|'#'*) continue ;; esac
     local link="[\`$branch\`](https://github.com/{{BUILD_REPO}}/tree/$branch)"
     if [ "$flavor" = fixed ] && [ -n "$BASE_VERSION" ] && [ "$head" = "$last_fixed" ] && [ "$src" = "$SOURCE_SHA" ]; then
-      rows+=("| 固定版 | $link | 2 の \`${SOURCE_REF}\` に、下の表の「固定版」のコミットを上から順に足した物 |")
+      rows+=("| 固定版 | $link | 2 の \`${SOURCE_REF}\` に、下の表の「固定版」のコミットを足した物 |")
       clone=$branch
     elif [ "$flavor" = latest ] && [ -n "$LATEST_VERSION" ] && [ "$head" = "$last_latest" ] && [ "$src" = "$SOURCE_SHA" ] && [ "$up" = "$LATEST_UPSTREAM_SHA" ]; then
-      rows+=("| 最新版 | $link | 2 の \`${SOURCE_REF}\` に本家の \`master\`($(commit_link "$UPSTREAM_REPO" "$up"))をマージし、下の表の「最新版」のコミットを上から順に足した物 |")
+      rows+=("| 最新版 | $link | 2 の \`${SOURCE_REF}\` に本家の \`master\`($(commit_link "$UPSTREAM_REPO" "$up"))をマージし、下の表の「最新版」のコミットを足した物 |")
       clone=${clone:-$branch}
     fi
   done < "$d/source-branches.txt"
@@ -80,20 +119,11 @@ source_branches() {
   echo "git clone -b $clone https://github.com/{{BUILD_REPO}}.git"
   echo '```'
 }
-# README のコミットの表 (source.md) に、足すコミットが全部載っているかを確かめる
-check_source_table() {
-  local missing
-  missing=$(awk '!/^[[:space:]]*(#|$)/ {print substr($1, 1, 8)}' "$d/extra-commits.txt" "$d/extra-commits-latest.txt" \
-    | while read -r c; do grep -q "$c" "$d/source.md" || echo "$c"; done)
-  if [ -n "$missing" ]; then
-    echo "packaging/source.md のコミットの表に載っていないコミットがあります: $(echo $missing)" >&2
-    exit 1
-  fi
-}
 part() {
   while IFS= read -r line; do
     case "$line" in
       "{{CHANGES}}") changes ;;
+      "{{COMMITS}}") commits_table ;;
       "{{DOWNLOADS}}") downloads ;;
       "{{LAYERS}}") layers ;;
       "{{SOURCE_BRANCHES}}") source_branches ;;
@@ -101,8 +131,9 @@ part() {
     esac
   done < "$d/$1.md"
 }
+check_keys
 case "${1:-}" in
-  readme)  { check_source_table; part top; part howto; part about; part source; part notice; } ;;
+  readme)  { part top; part howto; part about; part source; part notice; } ;;
   release) { echo "固定版は OpenUtau ${BASE_VERSION}(PR のまま)、最新版(ファイル名に latest)は本家 [OpenUtau](https://github.com/openutau/OpenUtau) の最新を混ぜたものです(動作保証なし)。入れるのはどちらか一方です。"; echo; part howto; part about; part notice; } ;;
   mac)     { echo "# OpenUtau NEUTRINO対応版(非公式)"; echo; part howto; part about; part notice; } ;;
   windows) { echo "# OpenUtau NEUTRINO対応版(非公式)"; echo; part howto; part about; part notice; } ;;

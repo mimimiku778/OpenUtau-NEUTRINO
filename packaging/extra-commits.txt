@@ -1,21 +1,38 @@
-# 元のソース (PR の neutrino ブランチ) に足してビルドするコミット。上から順に当てる。
-# 1行に1つ: <コミット(40桁)> <そのコミットがあるリポジトリ> <説明>
-# 説明は README・Release・同梱の説明書の「足した機能」に載る。
+# 元のソース (PR の neutrino ブランチ) に足してビルドする「固定版」のコミット。上から順に当てる。
+# 1行に1つ: <コミット(40桁)> <そのコミットがあるリポジトリ> <key> <メモ>
+# key は features.txt と合わせる (README の「足したコミット」の表は、key ごとにここのコミットを集めて作る)。
 # PR に同じ変更が入ったら自動で飛ばす。当たらなくなったらビルドが止まるので、この行を見直す。
-# 変えたら packaging/source.md のコミットの表も直す (README を組む時に、ここのコミットが全部載っているかを確かめる)。
-c5cb0f47243a012d20c79d73b58d354b9149d7af rokujyushi/OpenUtau **v3 の声でも声色と明るさを変えられる(mel 編集)**: 元の PR では、ずんだもん等の NEUTRINO v3 の声に「GENC(声色)」と「TENC(明るさ・強さ)」のカーブが効きません。この版では効くので、声を太く・細くしたり、語尾だけ暗く弱くしたりを OpenUtau の中でできます。
-7a637f201e12ad5840cef3371d6fe8fb8fb187e0 pika-02-03/OpenUtau-NEUTRINO **direct でも自分で付けたビブラート・ピッチが効く**: direct をオンにすると NEUTRINO の自然な音程のまま歌いますが、元の PR ではそのとき OpenUtau で付けたビブラートや PITD(ピッチのカーブ)が無視されます。この版では NEUTRINO の自然な音程の上に足して鳴らすので、「歌い回しはそのまま、ここだけビブラートやしゃくりを足す」ができます。
-7ee7cbc8e951d3338f1fa45c88394b8cf8b32498 pika-02-03/OpenUtau-NEUTRINO **聞こえる音程がそのまま画面に出る**: 元の PR では、direct の部分でも画面の灰色の線は OpenUtau 側の音程のままで、聞こえる音程と食い違っていました。この版では実際に鳴る音程を線で描くので、線を見ながら PITD をペンで描き足せます。
-4e6c5f7c3e890da4d003b5d8f39653b74ef7789a pika-02-03/OpenUtau-NEUTRINO **Mac で Shift+ホイールの横スクロール**: Mac では Shift を押しながらホイールを回しても横に動かず縦に動いていたのを直しました。ピアノロールとトラックの画面で横に動きます。
-# 画面なしの書き出し (CLI): 本家への PR openutau/OpenUtau#2162 (christianazinn さん、head 06990cf5) の9コミットと、配布版に合わせる直し。
-# PR 側が force-push されても消えないよう、pika-02-03/OpenUtau-NEUTRINO の neutrino-cli-dist に cherry-pick した物を指す。説明が「-」の行は一覧に載せない。
-003f50ede862081ee40e86dbc43c53930eb74ef4 pika-02-03/OpenUtau-NEUTRINO -
-fd532cd6091d1c21762523d6fcb8adec6fdab69d pika-02-03/OpenUtau-NEUTRINO -
-c5a30d1dc371766cb67a54ec9573ef6085171e01 pika-02-03/OpenUtau-NEUTRINO -
-75a3d9461f090064f0950fafa65a29bee9f41aa7 pika-02-03/OpenUtau-NEUTRINO -
-3f019bce1117f1926fe607cbc2a81cf2c7eb2724 pika-02-03/OpenUtau-NEUTRINO -
-fb18986b35c4a06a6727756dc68d7c41aaaf7358 pika-02-03/OpenUtau-NEUTRINO -
-a9b35dd1070470c26565073001fc0ba85c6d6410 pika-02-03/OpenUtau-NEUTRINO -
-59b1ec0c9a6fbe6d34c2431de682374c4adf6a0a pika-02-03/OpenUtau-NEUTRINO -
-e4814b9629181e60d6f2478c9180119cdc6c3cf3 pika-02-03/OpenUtau-NEUTRINO -
-d8c3da40b535c7bc35108dfcb90e4abea883d345 pika-02-03/OpenUtau-NEUTRINO **画面を開かずに書き出せる(CLI)**: OpenUtau を起動せず、コマンド1行で ustx を wav に書き出せます(使い方は上)。たくさんの曲をまとめて書き出したり、ほかのツールから自動で呼んだりできます。本家に出ている未マージの PR [openutau/OpenUtau#2162](https://github.com/openutau/OpenUtau/pull/2162) を、NEUTRINO 対応版で動くように直して入れています。
+# コミットがまだ決まっていない行は 1 列目を TODO にしておく (README では「未記入」と出て、ビルドは止まる)。
+c5cb0f47243a012d20c79d73b58d354b9149d7af rokujyushi/OpenUtau mel
+7a637f201e12ad5840cef3371d6fe8fb8fb187e0 pika-02-03/OpenUtau-NEUTRINO direct-pitd
+7ee7cbc8e951d3338f1fa45c88394b8cf8b32498 pika-02-03/OpenUtau-NEUTRINO pitch-line
+4e6c5f7c3e890da4d003b5d8f39653b74ef7789a pika-02-03/OpenUtau-NEUTRINO mac-wheel
+# 画面なしの書き出し (CLI): 本家への PR openutau/OpenUtau#2162 (christianazinn さん、head 06990cf5) の 9 コミット。
+# PR 側が force-push されても消えないよう、pika-02-03/OpenUtau-NEUTRINO の neutrino-cli-dist に cherry-pick した物を指す。
+003f50ede862081ee40e86dbc43c53930eb74ef4 pika-02-03/OpenUtau-NEUTRINO cli Add phonemizer idle wait
+fd532cd6091d1c21762523d6fcb8adec6fdab69d pika-02-03/OpenUtau-NEUTRINO cli Add headless render host
+c5a30d1dc371766cb67a54ec9573ef6085171e01 pika-02-03/OpenUtau-NEUTRINO cli Add CLI render command
+75a3d9461f090064f0950fafa65a29bee9f41aa7 pika-02-03/OpenUtau-NEUTRINO cli Fix headless CLI runtime behavior
+3f019bce1117f1926fe607cbc2a81cf2c7eb2724 pika-02-03/OpenUtau-NEUTRINO cli Avoid stale output probes in CLI render
+fb18986b35c4a06a6727756dc68d7c41aaaf7358 pika-02-03/OpenUtau-NEUTRINO cli Run render command from OpenUtau executable
+a9b35dd1070470c26565073001fc0ba85c6d6410 pika-02-03/OpenUtau-NEUTRINO cli Expose headless ONNX and DiffSinger options
+59b1ec0c9a6fbe6d34c2431de682374c4adf6a0a pika-02-03/OpenUtau-NEUTRINO cli Add headless batch render mode
+e4814b9629181e60d6f2478c9180119cdc6c3cf3 pika-02-03/OpenUtau-NEUTRINO cli Add headless render command tests
+d8c3da40b535c7bc35108dfcb90e4abea883d345 pika-02-03/OpenUtau-NEUTRINO cli-neutrino 画面なしの書き出しを NEUTRINO 対応の配布版に合わせる
+# ---- ここから下は neutrino-latest-dist の同じ変更を固定版へ載せ直した物 (並びは extra-commits-latest.txt と同じ) ----
+adf90893b133dac65c41846a0effec792f3e4480 pika-02-03/OpenUtau-NEUTRINO cli-neutrino 画面なしの書き出しで、再生管理を先に作り終えてからプロジェクトを読む
+2f4a4a0593dab2f8dcad40e79334eb09097c33a2 pika-02-03/OpenUtau-NEUTRINO teacher VOICEVOX: 204 No Content を空の JSON として読む
+c480d92345a52f8d875a3233e4c35e8745cb4d0d pika-02-03/OpenUtau-NEUTRINO teacher 句ごとの声と F0 の先生
+22245c92d4ed60db4f80579e753b007ceeda741b pika-02-03/OpenUtau-NEUTRINO teacher VOICEVOX の句にも鳴る線を描く
+093fbb65da67f19a98cc864814c05102698efb35 pika-02-03/OpenUtau-NEUTRINO teacher プロジェクトへ自動で足す
+860f6136038c73e879ac754dfcc30c6ce1fe15a7 pika-02-03/OpenUtau-NEUTRINO teacher 選択肢の上限
+b5d238b2cc9649c8c83fb082e815886ebd05131f pika-02-03/OpenUtau-NEUTRINO v3-expr 2.x でだけ効く表情を出さない
+c43d181e902ed648f308181480b93128fd81b6d7 pika-02-03/OpenUtau-NEUTRINO teacher-band 効く範囲を帯で見せる
+528f17a22f61b500a4f4fc70cd6c94f1838a519d pika-02-03/OpenUtau-NEUTRINO v3-expr tone shift は隠さない
+415833dc9191032ff9a83d47a75b22bfcd49999d pika-02-03/OpenUtau-NEUTRINO teacher 先生の WAV の速さの取り違え
+6692c06c980f2d9bd2207ef23ba33e115b1cef4c pika-02-03/OpenUtau-NEUTRINO vv-44100 VOICEVOX を 44100 Hz で受ける
+620ebbafe0fcc7fe6787fd23d24c0063292d2a70 pika-02-03/OpenUtau-NEUTRINO sinc mono を窓つき sinc で変換
+f49406d4f134f02f7ee30ed7cc885ea117263b8d pika-02-03/OpenUtau-NEUTRINO sinc 本家向け PR と同じ中身に揃える
+e3acc8aaa97551fc35e23f804d0473ab886b4782 pika-02-03/OpenUtau-NEUTRINO vv-katakana カタカナの歌詞
+b2893a559b437a82d458742dcdd8654f71c319c5 pika-02-03/OpenUtau-NEUTRINO sinc WDL の sinc に替える
+05dcceec7be8d13048408f1b16d314442c08d859 pika-02-03/OpenUtau-NEUTRINO vv-lyrics あっ[a cl]・づ・ー

@@ -8,6 +8,10 @@ set -euo pipefail
 list=$1
 while read -r sha repo _; do
   case "$sha" in ''|'#'*) continue ;; esac
+  if ! [[ $sha =~ ^[0-9a-f]{40}$ ]]; then
+    echo "::error::コミットが未記入の行があります ($sha $repo)。$(basename "$list") を埋めてください"
+    exit 1
+  fi
   git fetch -q --no-tags --depth=2 "https://github.com/$repo" "$sha"
   before=$(git write-tree)
   if ! git -c user.name=build -c user.email=build@localhost cherry-pick --no-commit "$sha"; then
