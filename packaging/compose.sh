@@ -4,7 +4,7 @@
 #   readme=リポジトリの README / release=Release の本文 / mac・windows=配布物に同梱する説明書
 # 環境変数: BUILD_REPO (無ければ GITHUB_REPOSITORY)、BASE_VERSION・LATEST_VERSION (その版を出していなければ空)、
 #   SOURCE_REPO・SOURCE_REF・SOURCE_SHA・LATEST_UPSTREAM_SHA・LATEST_UPSTREAM_DATE (渡さなければ state/last-build.json から)
-# 部品: top.md・howto.md・about.md・source.md・notice.md (文章)、features.txt (足した機能の台帳)、
+# 部品: top.md・howto.md・about.md・source.md・notice.md (文章)、install-mac.md・install-windows.md (入れ方。mac・windows ではその OS の物だけ)、features.txt (足した機能の台帳)、
 #   extra-commits.txt・extra-commits-latest.txt (足すコミット。3 列目の key で features.txt と結ぶ)、source-branches.txt (ソースを並べたブランチ)
 set -euo pipefail
 d=$(cd "$(dirname "$0")" && pwd)
@@ -160,6 +160,7 @@ part() {
       "{{DOWNLOADS}}") downloads ;;
       "{{LAYERS}}") layers ;;
       "{{SOURCE_BRANCHES}}") source_branches ;;
+      "{{INSTALL}}") case "$MODE" in mac) part install-mac ;; windows) part install-windows ;; *) part install-mac; echo; part install-windows ;; esac ;;
       *) printf '%s\n' "$line" ;;
     esac
   done < "$d/$1.md"

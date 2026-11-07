@@ -17,13 +17,73 @@
 
 入れるのはどちらか一方です。
 
+## 入れ方
+
+ダウンロードした dmg(Mac)・zip(Windows)には、アプリ本体と一緒に **登録スクリプト** が入っています。
+
+- **登録スクリプト**: 手元の NEUTRINO を、この OpenUtau から使えるようにする物。NEUTRINO のフォルダを渡すだけで、中の歌声モデルが OpenUtau の歌手に並びます。
+- NEUTRINO 本体は入っていません。[NEUTRINO 公式](https://studio-neutrino.com/)から v3.2 以上を入手して、好きな場所に展開しておいてください。
+
+### Mac
+
+dmg の中身:
+
+| ファイル | 何か |
+|---|---|
+| `OpenUtau.app` | アプリ本体 |
+| `NEUTRINOを登録.command` | 登録スクリプト |
+| `NEUTRINOの登録を解除.command` | 登録を外すスクリプト |
+| `はじめにお読みください.md` | この説明 |
+
+手順:
+
+1. dmg を開き、`OpenUtau.app` を隣の `Applications` へドラッグする。
+2. dmg の中の `NEUTRINOを登録.command` をダブルクリックする(ターミナルが開く)。
+3. 「NEUTRINO のフォルダをこのウィンドウへドラッグして」と出たら、NEUTRINO のフォルダをドラッグして Enter。
+4. 「完了」と出たら OpenUtau を起動する。歌手に「`<モデル名>` (NEUTRINO)」が並ぶ。
+
+ダブルクリックで開けない時は、ターミナルに `bash `(後ろに空白)と打ってから `NEUTRINOを登録.command` をドラッグし、Enter。
+
+登録スクリプトがすること:
+
+- OpenUtau と NEUTRINO から「ネットから来たファイル」の印を外す。署名が無いので、そのままだと macOS に止められるため。中身は変えない。
+- `~/Library/OpenUtau` に、NEUTRINO へのリンクと、モデルごとの歌手を作る。NEUTRINO 本体とモデルには書き込まない。
+- モデルを足したり消したりした時は、もう一度実行すれば合わせ直す。
+
+`NEUTRINOの登録を解除.command` は、登録で作った物だけを外します。NEUTRINO 本体・モデル・作品は消えません。
+
+### Windows
+
+zip の中身(展開したフォルダが、そのまま OpenUtau 本体です):
+
+| ファイル | 何か |
+|---|---|
+| `OpenUtau.exe` | アプリ本体 |
+| `register-neutrino.bat` | 登録スクリプト |
+| `unregister-neutrino.bat` | 登録を外すスクリプト |
+| `はじめにお読みください.md` | この説明 |
+
+手順:
+
+1. zip を好きな場所に展開する。
+2. 展開したフォルダの `register-neutrino.bat` をダブルクリックする(黒いウィンドウが開く)。
+3. 「NEUTRINO のフォルダをこのウィンドウへドラッグして」と出たら、NEUTRINO のフォルダをドラッグして Enter。
+4. 「完了」と出たら `OpenUtau.exe` を起動する。歌手に「`<モデル名>` (NEUTRINO)」が並ぶ。
+
+登録スクリプトがすること(管理者権限は要らない):
+
+- OpenUtau と NEUTRINO のファイルのブロックを外す。署名が無いので、そのままだと Windows に止められるため。中身は変えない。
+- OpenUtau のフォルダの中に、NEUTRINO へのリンクと、モデルごとの歌手を作る。NEUTRINO 本体とモデルには書き込まない。
+- モデルを足したり消したりした時は、もう一度実行すれば合わせ直す。
+
+`unregister-neutrino.bat` は、登録で作った物だけを外します。NEUTRINO 本体・モデル・作品は消えません。
+
+手で入れる時は、[rokujyushi さんの wiki](https://github.com/rokujyushi/OpenUtau/wiki/OpenUtau%E2%80%90for%E2%80%90NEUTRINO) のとおりです(アプリ名は `OpenUtau`)。
+
 ## 使い方
 
-| したいこと | やり方 |
-|---|---|
-| 入れる | [rokujyushi さんの wiki](https://github.com/rokujyushi/OpenUtau/wiki/OpenUtau%E2%80%90for%E2%80%90NEUTRINO) のとおり(アプリ名は `OpenUtau`)。同梱の登録スクリプトでも入れられる |
-| VOICEVOX の声で歌う | OpenUtau を開く前に VOICEVOX のアプリを起動し、OpenUtau を使っている間は開いたままにする(アプリの中で動く VOICEVOX エンジンにつないで歌わせるため)。歌手の入れ方は本家の [VOICEVOX support](https://github.com/openutau/OpenUtau/wiki/VOICEVOX-support) |
-| 画面なしで書き出す | `OpenUtau render --input x.ustx --output x.wav`。オプションと書き方は [CLI の説明](https://github.com/pika-02-03/OpenUtau-NEUTRINO/blob/release-kit/docs/cli.md) |
+- **画面なしで書き出す**: `OpenUtau render --input x.ustx --output x.wav`。オプションは [CLI の説明](https://github.com/pika-02-03/OpenUtau-NEUTRINO/blob/release-kit/docs/cli.md)。
+- **補足**: VOICEVOX の声で歌わせる時は、VOICEVOX のアプリを裏で起動しておく(起動していないと動かない)。
 
 ## 足した機能
 
