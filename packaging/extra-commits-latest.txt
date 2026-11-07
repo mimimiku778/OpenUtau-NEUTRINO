@@ -2,6 +2,7 @@
 # extra-commits.txt と同じ変更を、本家の最新に当たる形にしたもの。
 # pika-02-03/OpenUtau-NEUTRINO の neutrino-latest-dist (本家 master f920e242 を混ぜた上) に並べてある。
 # 1行に1つ: <コミット(40桁)> <そのコミットがあるリポジトリ> <メモ>。README の一覧は extra-commits.txt の説明を使う。
+# 変えたら packaging/source.md のコミットの表も直す。
 7b8ebd790b6c5a7f7a91c14c339eb70f136b4d25 pika-02-03/OpenUtau-NEUTRINO mel 編集 (c5cb0f47 のまま)
 f6f6ae32d2e7655638e7817a247ba217676dd7a1 pika-02-03/OpenUtau-NEUTRINO direct でもビブラートと PITD (7a637f20。本家の pitchesBeforeVibrato と名前がぶつかるので stepPitches にした)
 ca70f8bedb679aba8f5994904ad2276b9ab7165a pika-02-03/OpenUtau-NEUTRINO 鳴る音程を画面に描く (7ee7cbc8 のまま)
