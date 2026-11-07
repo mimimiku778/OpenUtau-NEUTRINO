@@ -66,6 +66,15 @@ namespace OpenUtau.Core.Neutrino {
             return supportedExp.Contains(descriptor.abbr);
         }
 
+        /// NEUTRINO 2.x の声でだけ効く表情 (engine type・engine mode は 2.x の描画の選び方、tone shift は 2.x のキー指定)。
+        static readonly HashSet<string> v27OnlyExp = new HashSet<string> { NTYP, NMOD, Format.Ustx.SHFT };
+
+        /// <summary>トラックの歌手が NEUTRINO v3 の時、2.x でだけ効く表情を画面に出さない。</summary>
+        public static bool HiddenFor(USinger singer, string abbr) {
+            return singer is NeutrinoSinger ns && singer.Loaded && v27OnlyExp.Contains(abbr)
+                && NeutrinoUtils.DetectVersion(ns.singerVersion) == NeutrinoVersion.V3;
+        }
+
         protected NeutrinoSinger singer;
         string NeutrinoExe = string.Empty;
         string NeutrinoClientExe = string.Empty;

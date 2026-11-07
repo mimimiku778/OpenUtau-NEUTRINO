@@ -1135,7 +1135,8 @@ namespace OpenUtau.App.ViewModels {
                 return true;
             }
             if (track.TryGetExpDescriptor(Project, expKey, out var descriptor)) {
-                return track.RendererSettings.Renderer.SupportsExpression(descriptor);
+                return track.RendererSettings.Renderer.SupportsExpression(descriptor)
+                    && !OpenUtau.Core.Neutrino.NeutrinoRenderer.HiddenFor(track.Singer, expKey);
             }
             if (expKey == track.VoiceColorExp.abbr) {
                 return track.RendererSettings.Renderer.SupportsExpression(track.VoiceColorExp);
