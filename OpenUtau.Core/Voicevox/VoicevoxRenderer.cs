@@ -324,12 +324,44 @@ namespace OpenUtau.Core.Voicevox {
             return vsParams;
         }
 
+        /// <summary>
+        /// Start times (ms) of the morae of a note sung as several VOICEVOX notes. A mora starts where its
+        /// vowel (or N / cl) starts in the phrase's phonemes, as VOICEVOX puts consonants before the note;
+        /// without such phonemes the note is split evenly.
+        /// </summary>
+        internal static double[] MoraStarts(RenderPhrase phrase, int noteIndex, int count) {
+            var note = phrase.notes[noteIndex];
+            int partNoteIndex = phrase.noteIndexes[noteIndex];
+            var nuclei = phrase.phones
+                .Where(p => p.noteIndex == partNoteIndex && p.phoneme != "pau" && VoicevoxUtils.phoneme_List.vowels.Contains(p.phoneme))
+                .Select(p => p.positionMs)
+                .ToList();
+            return MoraStarts(note.positionMs, note.endMs, nuclei, count);
+        }
+
+        internal static double[] MoraStarts(double startMs, double endMs, IList<double> nucleusStartsMs, int count) {
+            var starts = new double[count];
+            starts[0] = startMs;
+            bool fromPhonemes = nucleusStartsMs.Count == count;
+            for (int m = 1; m < count && fromPhonemes; m++) {
+                starts[m] = nucleusStartsMs[m];
+                fromPhonemes = starts[m] > starts[m - 1] && starts[m] < endMs;
+            }
+            if (!fromPhonemes) {
+                for (int m = 1; m < count; m++) {
+                    starts[m] = startMs + (endMs - startMs) * m / count;
+                }
+            }
+            return starts;
+        }
+
         private List<VoicevoxNote> BuildVNotes(RenderPhrase phrase) {
             List<VoicevoxNote> vNotes = new List<VoicevoxNote>();
             try {
                 for (int i = 0; i < phrase.notes.Length; i++) {
                     var durationMs = phrase.notes[i].durationMs;
-                    var currentLyric = phrase.notes[i].lyric.Normalize();
+                    // The hint goes first: "あっ[a cl]" split by spaces would leave only "cl]".
+                    var currentLyric = VoicevoxUtils.StripHint(phrase.notes[i].lyric.Normalize());
                     var lyricList = currentLyric.Split(" ");
                     var shiftTone = phrase.phones[0].toneShift;
                     if (!VoicevoxUtils.IsSyllableVowelExtensionNote(lyricList[^1])) {
@@ -339,6 +371,21 @@ namespace OpenUtau.Core.Voicevox {
                             currentLyric = VoicevoxUtils.dic.Lyrictodic(lyricList[^1]);
                         } else if (VoicevoxUtils.IsKana(lyricList[^1])) {
                             currentLyric = lyricList[^1];
+                        } else if (VoicevoxUtils.SplitKana(lyricList[^1]) is string[] morae) {
+                            // "あっ[a cl]" sings as "あ" + "っ": the engine takes one mora per note.
+                            var starts = MoraStarts(phrase, i, morae.Length);
+                            for (int m = 0; m < morae.Length; m++) {
+                                double end = m + 1 < morae.Length ? starts[m + 1] : phrase.notes[i].endMs;
+                                vNotes.Add(new VoicevoxNote() {
+                                    lyric = morae[m],
+                                    positionMs = starts[m],
+                                    durationMs = end - starts[m],
+                                    tone = (int)(phrase.notes[i].tone + shiftTone)
+                                });
+                            }
+                            continue;
+                        } else if (lyricList[^1] == "ー" && vNotes.Count > 0 && VoicevoxUtils.LongVowelKana(vNotes[^1].lyric) is string vowel) {
+                            currentLyric = vowel;
                         } else {
                             currentLyric = string.Empty;
                         }
@@ -498,9 +545,16 @@ namespace OpenUtau.Core.Voicevox {
             return null;
         }
 
+        /// <summary>
+        /// Mixed into the cache key. Bump it when the same phrase is sent to the engine differently,
+        /// so renders made by the old code are not reused (2: lyrics such as "あっ[a cl]" and "づ" no longer become rests).
+        /// </summary>
+        const int CacheVersion = 2;
+
         ulong HashPhraseGroups(RenderPhrase phrase) {
             using (var stream = new MemoryStream()) {
                 using (var writer = new BinaryWriter(stream)) {
+                    writer.Write(CacheVersion);
                     writer.Write(phrase.preEffectHash);
                     writer.Write(phrase.phones[0].tone);
                     writer.Write(phrase.phones[0].direct);

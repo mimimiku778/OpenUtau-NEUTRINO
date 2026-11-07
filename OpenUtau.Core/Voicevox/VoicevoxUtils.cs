@@ -88,7 +88,7 @@ namespace OpenUtau.Core.Voicevox {
             var kanaGroups = new List<string[]> {
                 "あ ぁ ば びゃ ゔゃ ヴャ ちゃ だ   でゃ ふぁ が ぐゎ ぐぁ ぎゃ は ひゃ じゃ ぢゃ か くゎ くぁ きゃ ま みゃ な にゃ ぱ ぴゃ ら りゃ さ   しゃ た   つぁ てゃ ゔぁ ヴァ わ   ゎ や  ゃ ざ".Split(),
                 "い ぃ び びぃ           ち   でぃ      ふぃ ぎ ぐぃ      ぎぃ ひ      じ   ぢ   き くぃ      きぃ み みぃ に      ぴ ぴぃ り りぃ すぃ し   てぃ つぃ      ゔぃ ヴィ うぃ           ずぃ".Split(),
-                "う ぅ ぶ びゅ ゔゅ ヴュ ちゅ どぅ でゅ ふ   ぐ ぐぅ      ぎゅ    ひゅ じゅ ぢゅ く くぅ      きゅ む みゅ ぬ にゅ ぷ ぴゅ る りゅ す   しゅ とぅ つ   てゅ ゔ   ヴ   うぅ    ゆ  ゅ ず".Split(),
+                "う ぅ ぶ びゅ ゔゅ ヴュ ちゅ どぅ でゅ ふ   ぐ ぐぅ      ぎゅ    ひゅ じゅ ぢゅ く くぅ      きゅ む みゅ ぬ にゅ ぷ ぴゅ る りゅ す   しゅ とぅ つ   てゅ ゔ   ヴ   うぅ    ゆ  ゅ ず づ".Split(),
                 "え ぇ べ びぇ           ちぇ で   でぇ ふぇ げ ぐぇ      ぎぇ へ ひぇ じぇ ぢぇ け くぇ      きぇ め みぇ ね にぇ ぺ ぴぇ れ りぇ せ   しぇ て   つぇ てぇ ゔぇ ヴェ うぇ    いぇ   ぜ".Split(),
                 "お ぉ ぼ びょ ゔょ ヴョ ちょ ど   でょ ふぉ ご ぐぉ      ぎょ ほ ひょ じょ ぢょ こ くぉ      きょ も みょ の にょ ぽ ぴょ ろ りょ そ   しょ と   つぉ てょ ゔぉ ヴォ うぉ を よ  ょ ぞ".Split(),
                 "ん".Split(),
@@ -454,6 +454,44 @@ namespace OpenUtau.Core.Voicevox {
         }
         public static bool IsKana(string s) {
             return phoneme_List.kanas.ContainsKey(s);
+        }
+        /// <summary>Drops a phonetic hint: "あっ[a cl]" → "あっ". The hint may contain spaces.</summary>
+        public static string StripHint(string lyric) {
+            int hint = lyric.IndexOf('[');
+            return hint > 0 && lyric.EndsWith("]") ? lyric.Substring(0, hint) : lyric;
+        }
+
+        /// <summary>
+        /// The kana a long-vowel mark ("ー") sings after the given mora: its vowel ("さ" → "あ"), as NEUTRINO
+        /// sings "さー" as "s a a". Null when the mora is not kana (the mark then stays a rest).
+        /// </summary>
+        public static string LongVowelKana(string previousLyric) {
+            return !string.IsNullOrEmpty(previousLyric) && phoneme_List.kanas.TryGetValue(previousLyric, out var vowel) ? vowel : null;
+        }
+
+        /// <summary>
+        /// Splits a note lyric into the kana VOICEVOX sings, one per mora. A phonetic hint is dropped
+        /// ("あっ[a cl]" → "あっ") and kana text is split by mora ("あっ" → "あ", "っ"),
+        /// because the engine takes a single mora per note. Returns null unless the text is all kana.
+        /// </summary>
+        public static string[] SplitKana(string lyric) {
+            if (string.IsNullOrEmpty(lyric)) {
+                return null;
+            }
+            lyric = StripHint(lyric);
+            var morae = new List<string>();
+            for (int i = 0; i < lyric.Length;) {
+                if (i + 2 <= lyric.Length && IsKana(lyric.Substring(i, 2))) {
+                    morae.Add(lyric.Substring(i, 2));
+                    i += 2;
+                } else if (IsKana(lyric.Substring(i, 1))) {
+                    morae.Add(lyric.Substring(i, 1));
+                    i += 1;
+                } else {
+                    return null;
+                }
+            }
+            return morae.Count > 0 ? morae.ToArray() : null;
         }
         public static bool IsPau(string s) {
             return phoneme_List.paus.ContainsKey(s);
