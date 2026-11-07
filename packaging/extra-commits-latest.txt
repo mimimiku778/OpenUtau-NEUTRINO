@@ -1,0 +1,18 @@
+# 「最新版」で、元のソースに本家 OpenUtau の master を混ぜた後に足すコミット。上から順に当てる。
+# extra-commits.txt と同じ変更を、本家の最新に当たる形にしたもの。
+# pika-02-03/OpenUtau-NEUTRINO の neutrino-latest-dist (本家 master f920e242 を混ぜた上) に並べてある。
+# 1行に1つ: <コミット(40桁)> <そのコミットがあるリポジトリ> <メモ>。README の一覧は extra-commits.txt の説明を使う。
+7b8ebd790b6c5a7f7a91c14c339eb70f136b4d25 pika-02-03/OpenUtau-NEUTRINO mel 編集 (c5cb0f47 のまま)
+f6f6ae32d2e7655638e7817a247ba217676dd7a1 pika-02-03/OpenUtau-NEUTRINO direct でもビブラートと PITD (7a637f20。本家の pitchesBeforeVibrato と名前がぶつかるので stepPitches にした)
+ca70f8bedb679aba8f5994904ad2276b9ab7165a pika-02-03/OpenUtau-NEUTRINO 鳴る音程を画面に描く (7ee7cbc8 のまま)
+502e607cf137ce42fd6a7882581ba20e4a6fca9b pika-02-03/OpenUtau-NEUTRINO Mac の Shift+ホイールで横スクロール (4e6c5f7c のまま)
+8c0789a5f65dbf43b82039629d9e4c294adaba0b pika-02-03/OpenUtau-NEUTRINO CLI 1/10 (openutau/OpenUtau#2162 のまま)
+759ea4cd326bd5187b5e68420547b761c4b8c3a2 pika-02-03/OpenUtau-NEUTRINO CLI 2/10 (のまま)
+d75ba160d6f53d90bf38485603876ce50f3e42e2 pika-02-03/OpenUtau-NEUTRINO CLI 3/10 (本家が OpenUtau.sln を OpenUtau.slnx にしたので slnx に足した)
+fdd4a32895b64b1e9f3fd22cdb010757f1e4cd6a pika-02-03/OpenUtau-NEUTRINO CLI 4/10 (のまま)
+28c610b0e30503cc3a1529f2a35921877d276168 pika-02-03/OpenUtau-NEUTRINO CLI 5/10 (のまま)
+d7eecf5b40439b3cf7619f903d80e22e50a64963 pika-02-03/OpenUtau-NEUTRINO CLI 6/10 (slnx から外した)
+77a8ef4c77937e5099871867a70f3b870b391a9d pika-02-03/OpenUtau-NEUTRINO CLI 7/10 (のまま)
+4e770fc1caf9feb4bb3aa2f5fe26f0b840490b60 pika-02-03/OpenUtau-NEUTRINO CLI 8/10 (のまま)
+d239c976455a011777536d781b86a34a999c0267 pika-02-03/OpenUtau-NEUTRINO CLI 9/10 (のまま)
+db870028e686eed23bd7acb09ba476de923e1eb6 pika-02-03/OpenUtau-NEUTRINO CLI 10/10 配布版に合わせる直し (d8c3da40 のまま)
