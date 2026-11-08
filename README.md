@@ -16,6 +16,7 @@
 | **最新版** | 本家の最新 0.1.577.9 を混ぜた物。動作保証なし | [dmg](https://github.com/pika-02-03/OpenUtau-NEUTRINO/releases/latest/download/OpenUtau-NEUTRINO-latest-macos-arm64.dmg) | [zip](https://github.com/pika-02-03/OpenUtau-NEUTRINO/releases/latest/download/OpenUtau-NEUTRINO-latest-win-x64.zip) |
 
 入れるのはどちらか一方です。
+前に出した版は [Releases](https://github.com/pika-02-03/OpenUtau-NEUTRINO/releases) に残しています(名前に中の OpenUtau の版)。動かなくなった時は、そこから前の版を入れ直してください。
 
 ## 入れ方
 

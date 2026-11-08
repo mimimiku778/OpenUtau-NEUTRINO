@@ -109,6 +109,9 @@ downloads() {
   fi
   echo
   echo "入れるのはどちらか一方です。"
+  if [ "$MODE" = readme ]; then
+    echo "前に出した版は [Releases](https://github.com/{{BUILD_REPO}}/releases) に残しています(名前に中の OpenUtau の版)。動かなくなった時は、そこから前の版を入れ直してください。"
+  fi
 }
 # 素の OpenUtau に何を重ねたか。出していない版は「今は出していません」。
 layers() {
