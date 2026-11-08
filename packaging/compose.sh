@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # packaging/ の部品から説明文を組み立てる。
 # 使い方: compose.sh readme|release|mac|windows
-#   readme=リポジトリの README / release=Release の本文 / mac・windows=配布物に同梱する説明書
+#   readme=リポジトリの README / release=Release の本文 (ダウンロードの表と README への 1 行だけ) / mac・windows=配布物に同梱する説明書
 # 環境変数: BUILD_REPO (無ければ GITHUB_REPOSITORY)、BASE_VERSION・LATEST_VERSION (その版を出していなければ空)、
 #   SOURCE_REPO・SOURCE_REF・SOURCE_SHA・LATEST_UPSTREAM_SHA・LATEST_UPSTREAM_DATE (渡さなければ state/last-build.json から)
 # 部品: top.md・howto.md・about.md・source.md・notice.md (文章)、install-mac.md・install-windows.md (入れ方。mac・windows ではその OS の物だけ)、features.txt (足した機能の台帳)、
@@ -169,7 +169,9 @@ check_keys
 MODE=${1:-}
 case "${1:-}" in
   readme)  { part top; part howto; part about; part source; part notice; } ;;
-  release) { downloads; echo; part howto; part about; part notice; } ;;
+  # Release の本文は落とす物だけ。入れ方・機能・注意は README に任せて重ねない
+  release) { downloads; echo; r="https://github.com/{{BUILD_REPO}}"
+    echo "[入れ方]($r#入れ方)・[足した機能]($r#足した機能)は README にあります。NEUTRINO 本体(v3.2 以上)は[公式](https://studio-neutrino.com/)から別に入れてください。非公式・無保証です。"; } ;;
   mac)     { echo "# OpenUtau NEUTRINO対応版(非公式)"; echo; part howto; part about; part notice; } ;;
   windows) { echo "# OpenUtau NEUTRINO対応版(非公式)"; echo; part howto; part about; part notice; } ;;
   *) echo "usage: $0 readme|release|mac|windows" >&2; exit 2 ;;

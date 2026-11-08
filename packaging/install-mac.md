@@ -1,27 +1,22 @@
 ### Mac
 
-dmg の中身:
+1. **NEUTRINO を置く**: NEUTRINO の zip をダブルクリックで展開し、NEUTRINO のフォルダをホーム(Finder で ⌘+Shift+H を押すと開く、家のマークのフォルダ)など、消さない場所へ移す。
+2. **OpenUtau を入れる**: この配布の dmg を開き、`OpenUtau.app` を隣の `Applications` へドラッグする。
+3. **ターミナルを開く**: ⌘+スペースを押し、「ターミナル」と打って Enter。
+4. **登録スクリプトを動かす**: ターミナルに `bash `(bash と空白 1 つ)と打ち、dmg の中の `NEUTRINOを登録.command` をターミナルへドラッグして Enter。
+5. **NEUTRINO のフォルダを渡す**: 「NEUTRINO のフォルダをこのウィンドウへドラッグして、Enter を押してください。」と出たら、手順 1 の NEUTRINO のフォルダをターミナルへドラッグして Enter。
+6. **終わり**: 「完了。」と出たら OpenUtau を起動する。歌手の一覧に `ZUNDAMON (NEUTRINO)` のように、モデルの名前 + `(NEUTRINO)` で並ぶ。
 
-| ファイル | 何か |
+途中で「アクセスを許可しますか」と聞かれたら「許可」を押す。
+
+**うまくいかない時**
+
+| こうなった | 直し方 |
 |---|---|
-| `OpenUtau.app` | アプリ本体 |
-| `NEUTRINOを登録.command` | 登録スクリプト |
-| `NEUTRINOの登録を解除.command` | 登録を外すスクリプト |
-| `はじめにお読みください.md` | この説明 |
+| `NEUTRINO のフォルダではないようです` と出る | 渡したフォルダが違う。開いて `bin` と `model` が見えるフォルダで手順 4 から |
+| `model/ の中に歌声モデルが見つかりませんでした` と出る | `model` の中が空。NEUTRINO 公式から歌声モデルを入れて手順 4 から |
+| OpenUtau を開こうとすると止められる | 手順 2 の前に手順 4 をした。手順 4 からやり直す |
 
-手順:
+歌声モデルを足した時や NEUTRINO のフォルダを動かした時も、手順 3〜5 をもう一度。
 
-1. dmg を開き、`OpenUtau.app` を隣の `Applications` へドラッグする。
-2. dmg の中の `NEUTRINOを登録.command` をダブルクリックする(ターミナルが開く)。
-3. 「NEUTRINO のフォルダをこのウィンドウへドラッグして」と出たら、NEUTRINO のフォルダをドラッグして Enter。
-4. 「完了」と出たら OpenUtau を起動する。歌手に「`<モデル名>` (NEUTRINO)」が並ぶ。
-
-ダブルクリックで開けない時は、ターミナルに `bash `(後ろに空白)と打ってから `NEUTRINOを登録.command` をドラッグし、Enter。
-
-登録スクリプトがすること:
-
-- OpenUtau と NEUTRINO から「ネットから来たファイル」の印を外す。署名が無いので、そのままだと macOS に止められるため。中身は変えない。
-- `~/Library/OpenUtau` に、NEUTRINO へのリンクと、モデルごとの歌手を作る。NEUTRINO 本体とモデルには書き込まない。
-- モデルを足したり消したりした時は、もう一度実行すれば合わせ直す。
-
-`NEUTRINOの登録を解除.command` は、登録で作った物だけを外します。NEUTRINO 本体・モデル・作品は消えません。
+登録スクリプトは、OpenUtau と NEUTRINO から「ネットから来たファイル」の印を外し(署名が無いので、そのままだと macOS に止められる)、`~/Library/OpenUtau` に NEUTRINO へのリンクと歌手を作ります。NEUTRINO 本体とモデルには書き込みません。外す時は、dmg の `NEUTRINOの登録を解除.command` を同じように動かします(NEUTRINO・モデル・作品は消えません)。

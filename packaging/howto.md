@@ -1,9 +1,24 @@
 ## 入れ方
 
-ダウンロードした dmg(Mac)・zip(Windows)には、アプリ本体と一緒に **登録スクリプト** が入っています。
+**用意する物**
 
-- **登録スクリプト**: 手元の NEUTRINO を、この OpenUtau から使えるようにする物。NEUTRINO のフォルダを渡すだけで、中の歌声モデルが OpenUtau の歌手に並びます。
-- NEUTRINO 本体は入っていません。[NEUTRINO 公式](https://studio-neutrino.com/)から v3.2 以上を入手して、好きな場所に展開しておいてください。
+| 物 | どこから |
+|---|---|
+| この OpenUtau(Mac は dmg、Windows は zip) | [Releases](https://github.com/{{BUILD_REPO}}/releases/latest) |
+| NEUTRINO 本体(v3.2 以上) | [NEUTRINO 公式](https://studio-neutrino.com/)。この配布には入っていない |
+
+**「NEUTRINO のフォルダ」**: NEUTRINO の zip を展開すると出てくるフォルダ。開いて `bin` と `model` が見えれば、それです。
+
+```
+NEUTRINO      ← これが「NEUTRINO のフォルダ」
+├── bin
+├── model     ← 歌声モデル (ZUNDAMON など) が 1 つずつ入っている
+├── score
+└── …
+```
+
+- 開いても `bin` と `model` が無く、フォルダが 1 つだけ入っている時は、その中が NEUTRINO のフォルダ。
+- 登録した後にこのフォルダを動かしたり名前を変えたりすると歌えなくなる。先に置き場所を決めておく(動かした時は登録をやり直す)。
 
 {{INSTALL}}
 
