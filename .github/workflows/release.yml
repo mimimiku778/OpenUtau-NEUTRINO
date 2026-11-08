@@ -1,5 +1,5 @@
 # 毎日、NEUTRINO対応PRのソースを確かめ、前回の配布から変わっていれば Mac / Windows 版をビルドして Release を出す。
-# 2種類を作る。どちらも同じ Release に入れる (Release は日本時間の日ごとに1つ。作らなかった版は前の Release から持ってくる)。
+# 2種類を作る。どちらも同じ Release に入れる (Release は元のソースのコミットごとに1つ。作り直すたびに出し直して日付を新しくする)。
 #   固定版 (fixed):  PR のソース + packaging/extra-commits.txt。OpenUtau 本体は PR が取り込んだ版のまま。
 #   最新版 (latest): PR のソースに本家 OpenUtau の master を混ぜ + packaging/extra-commits-latest.txt。
 #                    本家の master が動いた時も作り直す。作れなかった時は固定版だけを出す。
@@ -354,63 +354,53 @@ jobs:
           NEW_UPSTREAM_DATE: ${{ needs.check.outputs.upstream_date }}
         run: |
           set -euo pipefail
+          short=${SOURCE_SHA:0:8}
+          # Release は元のソースのコミットごとに1つ。同じソースで作り直した時は、増やさずに中身を差し替える。
+          tag="neutrino-${short}"
           st=state/last-build.json
-          prev_fixed=$(jq -r '.release_tag // ""' $st); prev_latest=$(jq -r '.latest.release_tag // ""' $st)
-          # Release は日本時間の日ごとに1つ。同じ日に作り直した時は、増やさずに中身を差し替える。
-          # 日が変わって初めて作った時は新しい Release を出すので、Releases に出る日付が最後に作った日になる。
-          # 説明文だけを作り直す時は、今出ている Release を直す。
-          if [ "$ACTION" = "docs" ]; then tag=${prev_latest:-$prev_fixed}
-          else tag="neutrino-$(TZ=Asia/Tokyo date +%Y%m%d)"; fi
           mkdir -p dist
           wanted() { jq -e --arg f "$1" 'index($f) != null' <<<"$FLAVORS" > /dev/null; }
           # Mac と Windows の両方が揃った版だけを出す
           built() { [ -f "dist/OpenUtau-NEUTRINO$1-macos-arm64.dmg" ] && [ -f "dist/OpenUtau-NEUTRINO$1-win-x64.zip" ]; }
+          files=(); failed=()
+          fixed_ok=false; latest_ok=false
+          if built ""; then fixed_ok=true; files+=(dist/OpenUtau-NEUTRINO-macos-arm64.dmg dist/OpenUtau-NEUTRINO-win-x64.zip)
+          elif wanted fixed; then failed+=("固定版"); fi
+          if built "-latest"; then latest_ok=true; files+=(dist/OpenUtau-NEUTRINO-latest-macos-arm64.dmg dist/OpenUtau-NEUTRINO-latest-win-x64.zip)
+          elif wanted latest; then failed+=("最新版"); fi
+          if [ ${#files[@]} -eq 0 ] && [ "$ACTION" != "docs" ]; then
+            echo "::error::どちらの版も作れませんでした"; exit 1
+          fi
           exists=false; gh release view "$tag" > /dev/null 2>&1 && exists=true
           if [ "$ACTION" = "docs" ] && ! $exists; then
             echo "::error::説明文を作り直す Release ${tag} がありません"; exit 1
           fi
-          # 今回作らなかった版は、前に出した Release から持ってくる (同じ Release ならそこに残っている物を使う)。
-          # 新しい Release にも両方の版が揃うので、「最新の Release」へのリンクが切れない。
-          carry() {
-            [ -n "$2" ] || return 1
-            [ "$2" = "$tag" ] && return 0
-            gh release download "$2" -D dist --clobber \
-              -p "OpenUtau-NEUTRINO$1-macos-arm64.dmg" -p "OpenUtau-NEUTRINO$1-win-x64.zip" && built "$1"
-          }
+          # 今回作らなかった版は、同じ Release に前に出した物が残っていれば、その記録を使う
           export BASE_VERSION="" LATEST_VERSION="" LATEST_UPSTREAM_SHA="" LATEST_UPSTREAM_DATE=""
-          failed=(); fixed_ok=false; latest_ok=false; fixed_kept=false; latest_kept=false
-          if built ""; then fixed_ok=true; BASE_VERSION=$NEW_VERSION
-          else
-            if wanted fixed; then failed+=("固定版"); fi
-            if carry "" "$prev_fixed"; then fixed_kept=true; BASE_VERSION=$(jq -r '.version // ""' $st); fi
-          fi
-          if built "-latest"; then
-            latest_ok=true
+          if $fixed_ok; then BASE_VERSION=$NEW_VERSION
+          elif $exists && [ "$(jq -r '.release_tag // ""' $st)" = "$tag" ]; then BASE_VERSION=$(jq -r '.version // ""' $st); fi
+          if $latest_ok; then
             LATEST_VERSION=$NEW_LATEST_VERSION; LATEST_UPSTREAM_SHA=$NEW_UPSTREAM_SHA; LATEST_UPSTREAM_DATE=$NEW_UPSTREAM_DATE
-          else
-            if wanted latest; then failed+=("最新版"); fi
-            if carry "-latest" "$prev_latest"; then
-              latest_kept=true
-              LATEST_VERSION=$(jq -r '.latest.version // ""' $st)
-              LATEST_UPSTREAM_SHA=$(jq -r '.latest.upstream_sha // ""' $st)
-              LATEST_UPSTREAM_DATE=$(jq -r '.latest.upstream_date // ""' $st)
-            fi
+          elif $exists && [ "$(jq -r '.latest.release_tag // ""' $st)" = "$tag" ]; then
+            LATEST_VERSION=$(jq -r '.latest.version // ""' $st)
+            LATEST_UPSTREAM_SHA=$(jq -r '.latest.upstream_sha // ""' $st)
+            LATEST_UPSTREAM_DATE=$(jq -r '.latest.upstream_date // ""' $st)
           fi
-          if ! $fixed_ok && ! $latest_ok && [ "$ACTION" != "docs" ]; then
-            echo "::error::どちらの版も作れませんでした"; exit 1
-          fi
-          files=()
-          for s in "" "-latest"; do
-            if built "$s"; then files+=("dist/OpenUtau-NEUTRINO$s-macos-arm64.dmg" "dist/OpenUtau-NEUTRINO$s-win-x64.zip"); fi
-          done
           title="OpenUtau NEUTRINO対応版"  # 版やコミットは載せない
           if $exists; then
             [ ${#files[@]} -eq 0 ] || gh release upload "$tag" "${files[@]}" --clobber
+            # 作り直した時は一度下書きに戻し、下で出し直す。Release を増やさずに、Releases に出る日付を作り直した日にする
+            if [ "$ACTION" = "build" ]; then gh release edit "$tag" --draft=true > /dev/null; fi
           else
             gh release create "$tag" "${files[@]}" --target "$GITHUB_REF_NAME" --latest --title "$title" --notes "準備中"
           fi
           packaging/compose.sh release > notes.md
-          gh release edit "$tag" --title "$title" --notes-file notes.md --latest
+          # 下書きのまま残すとダウンロードのリンクが切れるので、出し直しは失敗しても 3 回まで試す
+          for i in 1 2 3; do
+            gh release edit "$tag" --title "$title" --notes-file notes.md --draft=false --latest > /dev/null && break
+            if [ "$i" -eq 3 ]; then echo "::error::Release ${tag} を出し直せませんでした (下書きのまま)"; exit 1; fi
+            sleep 10
+          done
           # 作れた版の記録だけを更新する
           new=$(cat "$st")
           if $fixed_ok; then
@@ -425,9 +415,6 @@ jobs:
               --arg uprepo "$UPSTREAM_REPO" --arg version "$NEW_LATEST_VERSION" --argjson extras "$extras" \
               '.latest={source_sha:$sha, upstream_repo:$uprepo, upstream_sha:$up, upstream_date:$upd, extra_commits:$extras, version:$version, release_tag:$tag}' <<<"$new")
           fi
-          # 前の Release から持ってきた版は、中身の記録はそのままで、置き場所だけを今の Release にする
-          if $fixed_kept; then new=$(jq --arg tag "$tag" '.release_tag=$tag' <<<"$new"); fi
-          if $latest_kept; then new=$(jq --arg tag "$tag" '.latest.release_tag=$tag' <<<"$new"); fi
           printf '%s\n' "$new" > "$st"
           packaging/compose.sh readme > README.md
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
