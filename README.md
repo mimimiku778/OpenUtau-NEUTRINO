@@ -13,7 +13,7 @@
 | | 中身 | Mac | Windows(動作未確認) |
 |---|---|---|---|
 | **固定版** | OpenUtau 0.1.570.3。NEUTRINO 対応の PR のまま | [dmg](https://github.com/pika-02-03/OpenUtau-NEUTRINO/releases/latest/download/OpenUtau-NEUTRINO-macos-arm64.dmg) | [zip](https://github.com/pika-02-03/OpenUtau-NEUTRINO/releases/latest/download/OpenUtau-NEUTRINO-win-x64.zip) |
-| **最新版** | 本家の最新 0.1.577.9 を混ぜた物。動作保証なし | [dmg](https://github.com/pika-02-03/OpenUtau-NEUTRINO/releases/latest/download/OpenUtau-NEUTRINO-latest-macos-arm64.dmg) | [zip](https://github.com/pika-02-03/OpenUtau-NEUTRINO/releases/latest/download/OpenUtau-NEUTRINO-latest-win-x64.zip) |
+| **最新版** | 本家の最新 0.1.577.10 を混ぜた物。動作保証なし | [dmg](https://github.com/pika-02-03/OpenUtau-NEUTRINO/releases/latest/download/OpenUtau-NEUTRINO-latest-macos-arm64.dmg) | [zip](https://github.com/pika-02-03/OpenUtau-NEUTRINO/releases/latest/download/OpenUtau-NEUTRINO-latest-win-x64.zip) |
 
 入れるのはどちらか一方です。
 前に出した版は [Releases](https://github.com/pika-02-03/OpenUtau-NEUTRINO/releases) に残しています(名前に中の OpenUtau の版)。動かなくなった時は、そこから前の版を入れ直してください。
@@ -243,7 +243,7 @@ direct の句でも、ピアノロールの線は実際に鳴る音程です。�
 
 | | 重ねた物 | 中身 |
 |---|---|---|
-| 1 | 本家 [OpenUtau](https://github.com/openutau/OpenUtau) | 固定版は 0.1.570.3(2 が取り込んだ版)、最新版は 0.1.577.9(本家 `master` の [f920e242](https://github.com/openutau/OpenUtau/commit/f920e2423113f9a936ec77eebf1f192e02a7ea6a)、2026-11-05)。VOICEVOX で歌う機能はここに元からある |
+| 1 | 本家 [OpenUtau](https://github.com/openutau/OpenUtau) | 固定版は 0.1.570.3(2 が取り込んだ版)、最新版は 0.1.577.10(本家 `master` の [2005b967](https://github.com/openutau/OpenUtau/commit/2005b9670ac312aaf0bbf2b42767fb70fe9185dd)、2026-11-09)。VOICEVOX で歌う機能はここに元からある |
 | 2 | NEUTRINO 対応 | rokujyushi さんの PR [openutau/OpenUtau#2136](https://github.com/openutau/OpenUtau/pull/2136)。[rokujyushi/OpenUtau](https://github.com/rokujyushi/OpenUtau/tree/neutrino) の `neutrino` ブランチ([203c44f5](https://github.com/rokujyushi/OpenUtau/commit/203c44f5d1374697abfa69626a2b52a19627184b)) |
 | 3 | 画面なしの書き出し(CLI) | christianazinn さんの PR [openutau/OpenUtau#2162](https://github.com/openutau/OpenUtau/pull/2162) を、NEUTRINO 対応版で動くように直した物 |
 | 4 | この版で足した機能 | 上の「[足した機能](#足した機能)」 |
@@ -255,7 +255,6 @@ direct の句でも、ピアノロールの線は実際に鳴る音程です。�
 | | ブランチ | 中身 |
 |---|---|---|
 | 固定版 | [`neutrino-cli-dist`](https://github.com/pika-02-03/OpenUtau-NEUTRINO/tree/neutrino-cli-dist) | 2 の `neutrino` に、下の表の「固定版」のコミットを足した物 |
-| 最新版 | [`neutrino-latest-dist`](https://github.com/pika-02-03/OpenUtau-NEUTRINO/tree/neutrino-latest-dist) | 2 の `neutrino` に本家の `master`([f920e242](https://github.com/openutau/OpenUtau/commit/f920e2423113f9a936ec77eebf1f192e02a7ea6a))をマージし、下の表の「最新版」のコミットを足した物 |
 
 ```bash
 git clone -b neutrino-cli-dist https://github.com/pika-02-03/OpenUtau-NEUTRINO.git

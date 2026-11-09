@@ -28,12 +28,12 @@
     "d3e3d5acdc8950b2ea5adc5d84dd2e5389738e03"
   ],
   "version": "0.1.570.3",
-  "release_tag": "neutrino-203c44f5",
+  "release_tag": "neutrino-20261110",
   "latest": {
     "source_sha": "203c44f5d1374697abfa69626a2b52a19627184b",
     "upstream_repo": "openutau/OpenUtau",
-    "upstream_sha": "f920e2423113f9a936ec77eebf1f192e02a7ea6a",
-    "upstream_date": "2026-11-05",
+    "upstream_sha": "2005b9670ac312aaf0bbf2b42767fb70fe9185dd",
+    "upstream_date": "2026-11-09",
     "extra_commits": [
       "7b8ebd790b6c5a7f7a91c14c339eb70f136b4d25",
       "f6f6ae32d2e7655638e7817a247ba217676dd7a1",
@@ -59,7 +59,7 @@
       "a4d059d453b7d9c226dfe433d46d8bbee30e54f2",
       "a4fad1eb7401a3580e7447421ae9ccd4a885ea97"
     ],
-    "version": "0.1.577.9",
-    "release_tag": "neutrino-203c44f5"
+    "version": "0.1.577.10",
+    "release_tag": "neutrino-20261110"
   }
 }
